@@ -35,3 +35,5 @@ next-env.d.ts
 
 # local persistent mock storage
 .mock-store.json
+
+.vercel
