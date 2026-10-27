@@ -1,0 +1,221 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  COMPANY_ADMIN
+  HR
+  INTERVIEWER
+}
+
+enum JobStatus {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+enum CandidateSource {
+  EXTERNAL_FORM
+  HR_UPLOAD
+}
+
+enum CandidateStatus {
+  IN_PROGRESS
+  HIRED
+  REJECTED
+}
+
+enum EvaluationResult {
+  PENDING
+  PASS
+  FAIL
+}
+
+enum ChatSender {
+  USER
+  BOT
+}
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  industry  String?
+  size      String?
+  createdAt DateTime @default(now())
+
+  departments          Department[]
+  users                User[]
+  recruitmentProcesses RecruitmentProcess[]
+  jobPostings          JobPosting[]
+  candidates           Candidate[]
+  interviews           Interview[]
+  chatHistories        ChatHistory[]
+
+  @@map("companies")
+}
+
+model Department {
+  id          String   @id @default(uuid())
+  companyId   String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  users       User[]
+  jobPostings JobPosting[]
+
+  @@map("departments")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  companyId    String
+  departmentId String?
+  fullName     String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(HR)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  company            Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  department         Department?          @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdProcesses   RecruitmentProcess[] @relation("ProcessCreator")
+  createdJobPostings JobPosting[]         @relation("JobCreator")
+  assignedInterviews Interview[]          @relation("Interviewer")
+  createdInterviews  Interview[]          @relation("InterviewCreator")
+  chatHistories      ChatHistory[]
+
+  @@map("users")
+}
+
+model RecruitmentProcess {
+  id             String   @id @default(uuid())
+  companyId      String
+  name           String
+  targetPosition String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  company     Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy   User?          @relation("ProcessCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  stages      ProcessStage[]
+  jobPostings JobPosting[]
+
+  @@map("recruitment_processes")
+}
+
+model ProcessStage {
+  id              String  @id @default(uuid())
+  processId       String
+  stageName       String
+  orderIndex      Int
+  responsibleDept String?
+  goalDescription String?
+  estimatedDays   Int?
+  workDescription String? @db.Text
+
+  process    RecruitmentProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+  candidates Candidate[]
+  interviews Interview[]
+
+  @@map("process_stages")
+}
+
+model JobPosting {
+  id           String    @id @default(uuid())
+  companyId    String
+  departmentId String?
+  processId    String?
+  title        String
+  quantity     Int       @default(1)
+  salaryRange  String?
+  description  String    @db.Text
+  requirements String?   @db.Text
+  benefits     String?   @db.Text
+  status       JobStatus @default(OPEN)
+  deadline     DateTime?
+  createdById  String?
+  createdAt    DateTime  @default(now())
+
+  company    Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  department Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  process    RecruitmentProcess? @relation(fields: [processId], references: [id], onDelete: SetNull)
+  createdBy  User?               @relation("JobCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  candidates Candidate[]
+
+  @@map("job_postings")
+}
+
+model Candidate {
+  id                  String          @id @default(uuid())
+  companyId           String
+  jobPostingId        String
+  currentStageId      String?
+  fullName            String
+  email               String
+  phone               String?
+  cvFileUrl           String?         @db.Text
+  source              CandidateSource @default(EXTERNAL_FORM)
+  status              CandidateStatus @default(IN_PROGRESS)
+  rawCvText           String?         @db.Text
+  extractedSkills     String?         @db.Text
+  aiMatchScore        Int?
+  aiEvaluationSummary String?         @db.Text
+  appliedAt           DateTime        @default(now())
+
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  jobPosting   JobPosting    @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+  currentStage ProcessStage? @relation(fields: [currentStageId], references: [id], onDelete: SetNull)
+  interviews   Interview[]
+
+  @@map("candidates")
+}
+
+model Interview {
+  id               String           @id @default(uuid())
+  companyId        String
+  candidateId      String
+  stageId          String?
+  interviewerId    String?
+  createdById      String?
+  startTime        DateTime
+  endTime          DateTime
+  googleEventId    String?
+  meetLink         String?
+  calendarHtmlLink String?
+  rating           Int?
+  interviewerNotes String?          @db.Text
+  evaluationResult EvaluationResult @default(PENDING)
+  createdAt        DateTime         @default(now())
+
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  candidate   Candidate     @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  stage       ProcessStage? @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  interviewer User?         @relation("Interviewer", fields: [interviewerId], references: [id], onDelete: SetNull)
+  createdBy   User?         @relation("InterviewCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@map("interviews")
+}
+
+model ChatHistory {
+  id                 String     @id @default(uuid())
+  companyId          String
+  userId             String
+  candidateContextId String?
+  sender             ChatSender
+  message            String     @db.Text
+  createdAt          DateTime   @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("chat_histories")
+}
