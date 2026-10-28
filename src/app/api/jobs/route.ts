@@ -123,17 +123,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Mô tả công việc không được để trống." }, { status: 400 });
     }
 
-    let parsedDeadline: Date | null = null;
-    if (deadline) {
-      parsedDeadline = new Date(deadline);
-      if (isNaN(parsedDeadline.getTime())) {
-        return NextResponse.json({ error: "Hạn chót nộp hồ sơ không đúng định dạng." }, { status: 400 });
-      }
-      if (parsedDeadline.getTime() <= Date.now()) {
-        return NextResponse.json({
-          error: "Hạn chót nộp hồ sơ phải sau thời điểm hiện tại (không được đặt trước hoặc trùng thời gian hiện tại).",
-        }, { status: 400 });
-      }
+    if (!deadline) {
+      return NextResponse.json({ error: "Vui lòng chọn hạn chót nộp hồ sơ." }, { status: 400 });
+    }
+
+    const parsedDeadline = new Date(deadline);
+    if (isNaN(parsedDeadline.getTime())) {
+      return NextResponse.json({ error: "Hạn chót nộp hồ sơ không đúng định dạng." }, { status: 400 });
+    }
+    if (parsedDeadline.getTime() <= Date.now()) {
+      return NextResponse.json({
+        error: "Hạn chót nộp hồ sơ phải sau thời điểm hiện tại (không được đặt trước hoặc trùng thời gian hiện tại).",
+      }, { status: 400 });
     }
 
     if (!isRealDatabaseConfigured()) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   Briefcase,
@@ -82,7 +83,9 @@ export default function JobsPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Modals
+  // Modals & Submitting state
+  const [mounted, setMounted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingJob, setEditingJob] = useState<JobPostingItem | null>(null);
   const [viewingJob, setViewingJob] = useState<JobPostingItem | null>(null);
@@ -154,6 +157,7 @@ export default function JobsPage() {
   };
 
   useEffect(() => {
+    setMounted(true);
     fetchOptions();
   }, []);
 
@@ -166,29 +170,30 @@ export default function JobsPage() {
     fetchJobs();
   };
 
-  // Mốc thời gian tối thiểu (lớn hơn thời điểm hiện tại)
+  // Mốc thời gian tối thiểu (lớn hơn thời điểm hiện tại ít nhất 1 phút theo giờ local)
   const getMinDateTimeString = () => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() + 1);
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    const now = new Date(Date.now() + 60000);
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 16);
   };
 
   // Create Job
   const handleCreateJob = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (jobForm.deadline) {
-      const d = new Date(jobForm.deadline);
-      if (isNaN(d.getTime()) || d.getTime() <= Date.now()) {
-        showNotification("Hạn chót nộp hồ sơ phải sau thời điểm hiện tại.", true);
-        return;
-      }
+    if (isSubmitting) return;
+
+    if (!jobForm.deadline) {
+      showNotification("Vui lòng chọn hạn chót nộp hồ sơ.", true);
+      return;
     }
 
+    const deadlineTime = new Date(jobForm.deadline).getTime();
+    if (isNaN(deadlineTime) || deadlineTime <= Date.now()) {
+      showNotification("Hạn chót nộp hồ sơ phải sau thời điểm hiện tại.", true);
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       const res = await fetch("/api/jobs", {
         method: "POST",
@@ -218,21 +223,25 @@ export default function JobsPage() {
       fetchJobs();
     } catch (err: any) {
       showNotification(err.message, true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   // Update Job
   const handleUpdateJob = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingJob) return;
+    if (!editingJob || isSubmitting) return;
+
     if (editingJob.deadline) {
-      const d = new Date(editingJob.deadline);
-      if (isNaN(d.getTime()) || d.getTime() <= Date.now()) {
+      const deadlineTime = new Date(editingJob.deadline).getTime();
+      if (isNaN(deadlineTime) || deadlineTime <= Date.now()) {
         showNotification("Hạn chót nộp hồ sơ phải sau thời điểm hiện tại.", true);
         return;
       }
     }
 
+    setIsSubmitting(true);
     try {
       const res = await fetch(`/api/jobs/${editingJob.id}`, {
         method: "PUT",
@@ -247,6 +256,8 @@ export default function JobsPage() {
       fetchJobs();
     } catch (err: any) {
       showNotification(err.message, true);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -596,8 +607,8 @@ export default function JobsPage() {
       )}
 
       {/* ================= MODAL: ADD JOB ================= */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      {mounted && showAddModal && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-2xl bg-white border border-[#E5E5E0] rounded-2xl p-6 shadow-xl relative max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E5E5E0] sticky top-0 bg-white z-10">
               <h3 className="text-base font-bold text-[#0C0C0C] flex items-center gap-2">
@@ -605,6 +616,7 @@ export default function JobsPage() {
                 Tạo Đợt Tuyển Dụng Mới
               </h3>
               <button
+                type="button"
                 onClick={() => setShowAddModal(false)}
                 className="p-1 rounded-lg text-slate-400 hover:text-black"
               >
@@ -699,18 +711,15 @@ export default function JobsPage() {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Hạn Chót Nộp Hồ Sơ
+                    Hạn Chót Nộp Hồ Sơ <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="datetime-local"
+                    required
                     min={getMinDateTimeString()}
                     value={jobForm.deadline}
                     onChange={(e) => {
                       const val = e.target.value;
-                      if (val && new Date(val).getTime() <= Date.now()) {
-                        showNotification("Hạn chót nộp hồ sơ phải sau thời điểm hiện tại.", true);
-                        return;
-                      }
                       setJobForm({ ...jobForm, deadline: val });
                     }}
                     className="w-full px-3.5 py-2 bg-white border border-[#E5E5E0] rounded-lg text-[#0C0C0C] text-xs focus:outline-none focus:border-[#16a34a]"
@@ -768,19 +777,22 @@ export default function JobsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-[#16a34a] hover:bg-[#15803d] text-white text-xs font-semibold transition-colors"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-lg bg-[#16a34a] hover:bg-[#15803d] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold transition-colors flex items-center gap-2"
                 >
-                  Tạo Đợt Tuyển Dụng
+                  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{isSubmitting ? "Đang tạo..." : "Tạo Đợt Tuyển Dụng"}</span>
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ================= MODAL: EDIT JOB ================= */}
-      {editingJob && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      {mounted && editingJob && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-2xl bg-white border border-[#E5E5E0] rounded-2xl p-6 shadow-xl relative max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E5E5E0] sticky top-0 bg-white z-10">
               <h3 className="text-base font-bold text-[#0C0C0C] flex items-center gap-2">
@@ -788,6 +800,7 @@ export default function JobsPage() {
                 Chỉnh Sửa Đợt Tuyển Dụng
               </h3>
               <button
+                type="button"
                 onClick={() => setEditingJob(null)}
                 className="p-1 rounded-lg text-slate-400 hover:text-black"
               >
@@ -967,19 +980,22 @@ export default function JobsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-[#16a34a] hover:bg-[#15803d] text-white text-xs font-semibold transition-colors"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-lg bg-[#16a34a] hover:bg-[#15803d] disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold transition-colors flex items-center gap-2"
                 >
-                  Lưu Thay Đổi
+                  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  <span>{isSubmitting ? "Đang lưu..." : "Lưu Thay Đổi"}</span>
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ================= MODAL: VIEW FULL JD ================= */}
-      {viewingJob && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      {mounted && viewingJob && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-2xl bg-white border border-[#E5E5E0] rounded-2xl p-6 shadow-xl relative max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E5E5E0] sticky top-0 bg-white z-10">
               <div>
@@ -989,6 +1005,7 @@ export default function JobsPage() {
                 <h3 className="text-lg font-bold text-[#0C0C0C]">{viewingJob.title}</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setViewingJob(null)}
                 className="p-1 rounded-lg text-slate-400 hover:text-black"
               >
@@ -1065,7 +1082,8 @@ export default function JobsPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
