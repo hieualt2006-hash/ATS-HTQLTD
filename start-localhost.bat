@@ -19,10 +19,8 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [*] Dang don dep cac tien trinh Node cu va giai phong cong 3000...
-powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'node.exe' -and $_.CommandLine -like '*ATS-HTQLTD*') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
-
-:: Giai phong cuong che port 3000 neu con tien trinh nao khac chiem dung
+echo [*] Dang don dep cac tien trinh cu va giai phong cong 3000...
+taskkill /f /im node.exe >nul 2>&1
 for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr :3000 ^| findstr LISTENING') do (
     taskkill /f /pid %%a >nul 2>&1
 )
@@ -37,7 +35,7 @@ if not exist "node_modules" (
     )
 )
 
-echo [*] Dang lam sach cache .next de nap day du code va giao dien moi nhat...
+echo [*] Dang lam sach cache .next de nap code va giao dien moi nhat...
 if exist ".next" (
     rmdir /s /q ".next" >nul 2>&1
 )
