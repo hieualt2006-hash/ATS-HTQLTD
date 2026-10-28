@@ -10,7 +10,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["'Be Vietnam Pro'", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        sans: ["var(--font-be-vietnam-pro)", "'Be Vietnam Pro'", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
       },
       colors: {
         background: "var(--background)",

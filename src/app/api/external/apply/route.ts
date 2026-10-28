@@ -43,6 +43,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Không tìm thấy thông tin đợt tuyển dụng." }, { status: 404 });
     }
 
+    if (jobPosting.status === "CLOSED") {
+      return NextResponse.json({ error: "Đợt tuyển dụng này hiện đã đóng tiếp nhận hồ sơ." }, { status: 400 });
+    }
+
+    if (jobPosting.deadline && new Date(jobPosting.deadline).getTime() <= Date.now()) {
+      return NextResponse.json({ error: "Đợt tuyển dụng này đã hết hạn nhận hồ sơ." }, { status: 400 });
+    }
+
     // 2. Kiểm tra nghiêm ngặt tệp PDF
     if (!file) {
       return NextResponse.json({ error: "Vui lòng đính kèm tệp CV định dạng PDF của bạn." }, { status: 400 });

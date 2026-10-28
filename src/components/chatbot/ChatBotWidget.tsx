@@ -53,13 +53,16 @@ export default function ChatBotWidget() {
     }
   }, [messages, isOpen, isLoading]);
 
-  // Khởi tạo lấy thông tin chào mừng và câu hỏi gợi ý từ API
+  const [hasInitialized, setHasInitialized] = useState(false);
+
+  // Khởi tạo lấy thông tin chào mừng và câu hỏi gợi ý khi người dùng mở ChatBot (Lazy load tối ưu tốc độ)
   useEffect(() => {
-    if (isAuthPage) return;
+    if (isAuthPage || !isOpen || hasInitialized) return;
 
     let isMounted = true;
     async function initChatbot() {
       try {
+        setHasInitialized(true);
         const res = await fetch("/api/chatbot");
         if (res.ok) {
           const data = await res.json();
@@ -93,7 +96,7 @@ export default function ChatBotWidget() {
     return () => {
       isMounted = false;
     };
-  }, [isAuthPage]);
+  }, [isOpen, isAuthPage, hasInitialized, messages.length]);
 
   // Nếu đang ở trang đăng nhập / đăng ký -> Ẩn hoàn toàn
   if (isAuthPage) {

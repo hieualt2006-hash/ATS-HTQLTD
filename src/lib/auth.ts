@@ -29,9 +29,29 @@ export async function verifyAuthToken(token: string): Promise<AuthSessionPayload
   }
 }
 
+interface CachedCompany {
+  name: string;
+  slug: string;
+  expiresAt: number;
+}
+
+const companyCache = new Map<string, CachedCompany>();
+const COMPANY_CACHE_TTL_MS = 60 * 1000; // 60 giây cache nhanh
+
+/**
+ * Xóa cache khi công ty đổi tên hoặc slug trong trang Cài Đặt
+ */
+export function invalidateCompanyCache(companyId?: string) {
+  if (companyId) {
+    companyCache.delete(companyId);
+  } else {
+    companyCache.clear();
+  }
+}
+
 /**
  * Lấy Session người dùng hiện tại từ Cookie (Server Component & Server Actions)
- * Tự động đồng bộ thời gian thực tên công ty và slug mới nhất
+ * Tự động đồng bộ thời gian thực tên công ty và slug mới nhất có bộ nhớ đệm hiệu năng cao
  */
 export async function getCurrentSession(): Promise<AuthSessionPayload | null> {
   try {
@@ -42,32 +62,45 @@ export async function getCurrentSession(): Promise<AuthSessionPayload | null> {
     const session = await verifyAuthToken(token);
     if (!session) return null;
 
-    // Luôn luôn đồng bộ tên công ty và slug mới nhất từ mockStore hoặc Database
+    // Kiểm tra bộ nhớ đệm trước để tránh lãng phí truy vấn database lặp đi lặp lại
+    const now = Date.now();
+    const cached = companyCache.get(session.companyId);
+    if (cached && cached.expiresAt > now) {
+      session.companyName = cached.name;
+      session.companySlug = cached.slug;
+      return session;
+    }
+
+    // Đồng bộ tên công ty và slug mới nhất từ mockStore hoặc Database
     try {
       const { isRealDatabaseConfigured } = await import("@/lib/db-status");
-      const { mockStore } = await import("@/lib/mock-store");
 
       if (!isRealDatabaseConfigured()) {
+        const { mockStore } = await import("@/lib/mock-store");
         const list = Array.isArray(mockStore.companies) ? mockStore.companies : [];
         const comp = list.find((c) => c && c.id === session.companyId) || list[0];
-        if (comp?.name) {
-          session.companyName = comp.name;
-        }
-        if (comp?.slug) {
-          session.companySlug = comp.slug;
-        }
+        if (comp?.name) session.companyName = comp.name;
+        if (comp?.slug) session.companySlug = comp.slug;
+
+        companyCache.set(session.companyId, {
+          name: session.companyName,
+          slug: session.companySlug,
+          expiresAt: now + COMPANY_CACHE_TTL_MS,
+        });
       } else {
         const { prisma } = await import("@/lib/prisma");
         const comp = await prisma.company.findUnique({
           where: { id: session.companyId },
           select: { name: true, slug: true },
         });
-        if (comp?.name) {
-          session.companyName = comp.name;
-        }
-        if (comp?.slug) {
-          session.companySlug = comp.slug;
-        }
+        if (comp?.name) session.companyName = comp.name;
+        if (comp?.slug) session.companySlug = comp.slug;
+
+        companyCache.set(session.companyId, {
+          name: session.companyName,
+          slug: session.companySlug,
+          expiresAt: now + COMPANY_CACHE_TTL_MS,
+        });
       }
     } catch (syncErr) {
       // Giữ nguyên dữ liệu trong session nếu sync lỗi

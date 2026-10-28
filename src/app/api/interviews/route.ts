@@ -41,7 +41,7 @@ export async function GET(req: Request) {
           fullName: cand.fullName,
           email: cand.email,
           phone: cand.phone,
-          cvFileUrl: cand.cvFileUrl,
+          cvFileUrl: null,
           jobPosting: cand.jobPosting,
         } : null),
         stage: item.stage || (stage ? {
@@ -72,7 +72,13 @@ export async function GET(req: Request) {
       where: whereClause,
       include: {
         candidate: {
-          include: { jobPosting: { select: { id: true, title: true } } },
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phone: true,
+            jobPosting: { select: { id: true, title: true } },
+          },
         },
         stage: true,
         interviewer: { select: { id: true, fullName: true, email: true } },

@@ -49,7 +49,11 @@ export async function GET(req: Request) {
       );
     }
     list.sort((a, b) => (b.aiMatchScore || 0) - (a.aiMatchScore || 0));
-    return NextResponse.json({ candidates: list });
+    const sanitizedList = list.map(({ cvFileUrl, rawCvText, ...rest }) => ({
+      ...rest,
+      cvFileUrl: null,
+    }));
+    return NextResponse.json({ candidates: sanitizedList });
   }
 
   try {
@@ -84,7 +88,20 @@ export async function GET(req: Request) {
 
     const candidates = await prisma.candidate.findMany({
       where: whereClause,
-      include: {
+      select: {
+        id: true,
+        companyId: true,
+        jobPostingId: true,
+        currentStageId: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        source: true,
+        status: true,
+        extractedSkills: true,
+        aiMatchScore: true,
+        aiEvaluationSummary: true,
+        appliedAt: true,
         jobPosting: {
           select: {
             id: true,

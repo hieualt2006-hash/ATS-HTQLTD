@@ -26,7 +26,7 @@ import {
   ChevronRight,
   Eye,
 } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 
 interface Department {
   id: string;
@@ -114,6 +114,24 @@ export default function JobsPage() {
     }, 4000);
   };
 
+  // Fetch Departments & Processes once on mount
+  const fetchOptions = async () => {
+    try {
+      const [deptRes, procRes] = await Promise.all([
+        fetch("/api/company/departments"),
+        fetch("/api/processes"),
+      ]);
+      if (deptRes.ok) {
+        const dData = await deptRes.json();
+        setDepartments(dData.departments || []);
+      }
+      if (procRes.ok) {
+        const pData = await procRes.json();
+        setProcesses(pData.processes || []);
+      }
+    } catch {}
+  };
+
   // Fetch Jobs & Filters
   const fetchJobs = async () => {
     setLoading(true);
@@ -123,23 +141,10 @@ export default function JobsPage() {
       if (selectedDept !== "ALL") params.append("departmentId", selectedDept);
       if (selectedStatus !== "ALL") params.append("status", selectedStatus);
 
-      const [jobsRes, deptRes, procRes] = await Promise.all([
-        fetch(`/api/jobs?${params.toString()}`),
-        fetch("/api/company/departments"),
-        fetch("/api/processes"),
-      ]);
-
+      const jobsRes = await fetch(`/api/jobs?${params.toString()}`);
       if (jobsRes.ok) {
         const jData = await jobsRes.json();
         setJobs(jData.jobs || []);
-      }
-      if (deptRes.ok) {
-        const dData = await deptRes.json();
-        setDepartments(dData.departments || []);
-      }
-      if (procRes.ok) {
-        const pData = await procRes.json();
-        setProcesses(pData.processes || []);
       }
     } catch (err: any) {
       showNotification(err.message, true);
@@ -147,6 +152,10 @@ export default function JobsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchOptions();
+  }, []);
 
   useEffect(() => {
     fetchJobs();
@@ -157,9 +166,29 @@ export default function JobsPage() {
     fetchJobs();
   };
 
+  // Mốc thời gian tối thiểu (lớn hơn thời điểm hiện tại)
+  const getMinDateTimeString = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 1);
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    const hours = String(now.getHours()).padStart(2, "0");
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
   // Create Job
   const handleCreateJob = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (jobForm.deadline) {
+      const d = new Date(jobForm.deadline);
+      if (isNaN(d.getTime()) || d.getTime() <= Date.now()) {
+        showNotification("Hạn chót nộp hồ sơ phải sau thời điểm hiện tại.", true);
+        return;
+      }
+    }
+
     try {
       const res = await fetch("/api/jobs", {
         method: "POST",
@@ -196,6 +225,14 @@ export default function JobsPage() {
   const handleUpdateJob = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingJob) return;
+    if (editingJob.deadline) {
+      const d = new Date(editingJob.deadline);
+      if (isNaN(d.getTime()) || d.getTime() <= Date.now()) {
+        showNotification("Hạn chót nộp hồ sơ phải sau thời điểm hiện tại.", true);
+        return;
+      }
+    }
+
     try {
       const res = await fetch(`/api/jobs/${editingJob.id}`, {
         method: "PUT",
@@ -470,7 +507,7 @@ export default function JobsPage() {
                       {job.deadline && (
                         <div className="flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          <span>Hạn: {formatDate(job.deadline)}</span>
+                          <span>Hạn: {formatDateTime(job.deadline)}</span>
                         </div>
                       )}
                     </div>
@@ -618,7 +655,11 @@ export default function JobsPage() {
                     onChange={(e) => setJobForm({ ...jobForm, processId: e.target.value })}
                     className="w-full px-3.5 py-2 bg-white border border-[#E5E5E0] rounded-lg text-[#0C0C0C] text-xs focus:outline-none focus:border-[#16a34a]"
                   >
-                    <option value="">-- Chọn quy trình chuẩn --</option>
+                    <option value="">
+                      {processes.length === 0
+                        ? "-- Chưa có quy trình (Tạo tại mục 'Quy trình tuyển dụng') --"
+                        : "-- Chọn quy trình chuẩn --"}
+                    </option>
                     {processes.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name} · {p.stages?.length || 0} vòng
@@ -661,9 +702,17 @@ export default function JobsPage() {
                     Hạn Chót Nộp Hồ Sơ
                   </label>
                   <input
-                    type="date"
+                    type="datetime-local"
+                    min={getMinDateTimeString()}
                     value={jobForm.deadline}
-                    onChange={(e) => setJobForm({ ...jobForm, deadline: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val && new Date(val).getTime() <= Date.now()) {
+                        showNotification("Hạn chót nộp hồ sơ phải sau thời điểm hiện tại.", true);
+                        return;
+                      }
+                      setJobForm({ ...jobForm, deadline: val });
+                    }}
                     className="w-full px-3.5 py-2 bg-white border border-[#E5E5E0] rounded-lg text-[#0C0C0C] text-xs focus:outline-none focus:border-[#16a34a]"
                   />
                 </div>
@@ -788,7 +837,11 @@ export default function JobsPage() {
                     onChange={(e) => setEditingJob({ ...editingJob, processId: e.target.value || null })}
                     className="w-full px-3.5 py-2 bg-white border border-[#E5E5E0] rounded-lg text-[#0C0C0C] text-xs focus:outline-none focus:border-[#16a34a]"
                   >
-                    <option value="">-- Chưa gán quy trình --</option>
+                    <option value="">
+                      {processes.length === 0
+                        ? "-- Chưa có quy trình (Tạo tại mục 'Quy trình tuyển dụng') --"
+                        : "-- Chưa gán quy trình --"}
+                    </option>
                     {processes.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name} · {p.stages?.length || 0} vòng
@@ -798,7 +851,7 @@ export default function JobsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                     Số Lượng Tuyển
@@ -838,6 +891,32 @@ export default function JobsPage() {
                     <option value="DRAFT">Bản Nháp</option>
                     <option value="CLOSED">Đã Đóng</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Hạn Chót Nộp Hồ Sơ
+                  </label>
+                  <input
+                    type="datetime-local"
+                    min={getMinDateTimeString()}
+                    value={
+                      editingJob.deadline
+                        ? new Date(new Date(editingJob.deadline).getTime() - new Date().getTimezoneOffset() * 60000)
+                            .toISOString()
+                            .slice(0, 16)
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val && new Date(val).getTime() <= Date.now()) {
+                        showNotification("Hạn chót nộp hồ sơ phải sau thời điểm hiện tại.", true);
+                        return;
+                      }
+                      setEditingJob({ ...editingJob, deadline: val || null });
+                    }}
+                    className="w-full px-3.5 py-2 bg-white border border-[#E5E5E0] rounded-lg text-[#0C0C0C] text-xs focus:outline-none focus:border-[#16a34a]"
+                  />
                 </div>
               </div>
 

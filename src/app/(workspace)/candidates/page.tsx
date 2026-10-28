@@ -116,8 +116,18 @@ export default function CandidatesPage() {
     }, 4000);
   };
 
-  // Fetch Candidates and Jobs
-  const fetchData = async () => {
+  const fetchJobs = async () => {
+    try {
+      const res = await fetch("/api/jobs");
+      if (res.ok) {
+        const data = await res.json();
+        setJobs(data.jobs || []);
+      }
+    } catch {}
+  };
+
+  // Fetch Candidates with filters
+  const fetchCandidates = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -126,18 +136,10 @@ export default function CandidatesPage() {
       if (selectedSource !== "ALL") params.append("source", selectedSource);
       if (selectedStatus !== "ALL") params.append("status", selectedStatus);
 
-      const [candRes, jobsRes] = await Promise.all([
-        fetch(`/api/candidates?${params.toString()}`),
-        fetch("/api/jobs"),
-      ]);
-
-      if (candRes.ok) {
-        const cData = await candRes.json();
-        setCandidates(cData.candidates || []);
-      }
-      if (jobsRes.ok) {
-        const jData = await jobsRes.json();
-        setJobs(jData.jobs || []);
+      const res = await fetch(`/api/candidates?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCandidates(data.candidates || []);
       }
     } catch (err: any) {
       showNotification(err.message, true);
@@ -147,12 +149,16 @@ export default function CandidatesPage() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchJobs();
+  }, []);
+
+  useEffect(() => {
+    fetchCandidates();
   }, [selectedJob, selectedSource, selectedStatus]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchData();
+    fetchCandidates();
   };
 
   // HR Upload CV Submit
@@ -188,7 +194,7 @@ export default function CandidatesPage() {
       showNotification(`Đã tải lên và phân tích hồ sơ ứng viên thành công!`);
       setShowUploadModal(false);
       setUploadFile(null);
-      fetchData();
+      fetchCandidates();
     } catch (err: any) {
       showNotification(err.message, true);
     } finally {
@@ -208,7 +214,7 @@ export default function CandidatesPage() {
       if (!res.ok) throw new Error(data.error || "Không thể chuyển giai đoạn.");
 
       showNotification("Đã cập nhật giai đoạn tuyển dụng cho ứng viên!");
-      fetchData();
+      fetchCandidates();
       if (selectedCandidate && selectedCandidate.id === candidateId) {
         setSelectedCandidate(data.candidate);
       }
@@ -234,7 +240,7 @@ export default function CandidatesPage() {
       const label =
         status === "HIRED" ? "Trúng tuyển" : status === "REJECTED" ? "Loại" : "Đang xử lý";
       showNotification(`Đã cập nhật kết quả: ${label}`);
-      fetchData();
+      fetchCandidates();
       if (selectedCandidate && selectedCandidate.id === candidateId) {
         setSelectedCandidate(data.candidate);
       }
@@ -253,7 +259,7 @@ export default function CandidatesPage() {
 
       showNotification(`Đã xóa hồ sơ "${name}" thành công.`);
       setSelectedCandidate(null);
-      fetchData();
+      fetchCandidates();
     } catch (err: any) {
       showNotification(err.message, true);
     }

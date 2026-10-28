@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import ApplyFormClient from "./ApplyFormClient";
 import { Building2, Calendar, Users, MapPin, Briefcase } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { isRealDatabaseConfigured } from "@/lib/db-status";
 import { mockStore } from "@/lib/mock-store";
 
@@ -41,6 +41,9 @@ export default async function ExternalApplyPage({
     notFound();
   }
 
+  const isExpired = job.deadline ? new Date(job.deadline).getTime() <= Date.now() : false;
+  const isClosed = job.status === "CLOSED" || isExpired;
+
   return (
     <div className="min-h-screen bg-[#F2F1ED] text-[#0C0C0C] flex flex-col justify-between selection:bg-[#16a34a] selection:text-white">
       {/* Clean Independent Header */}
@@ -57,9 +60,15 @@ export default async function ExternalApplyPage({
           </div>
 
           <div className="text-right">
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              ● Đang Nhận Hồ Sơ
-            </span>
+            {isClosed ? (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
+                ● Đã Hết Hạn Nộp Hồ Sơ
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                ● Đang Nhận Hồ Sơ
+              </span>
+            )}
           </div>
         </div>
       </header>
@@ -95,8 +104,8 @@ export default async function ExternalApplyPage({
                   Số lượng: {job.quantity} người
                 </span>
                 {job.deadline && (
-                  <span className="px-2.5 py-1 rounded-md bg-[#F2F1ED] border border-[#E5E5E0] text-amber-700">
-                    Hạn nộp: {formatDate(job.deadline)}
+                  <span className={`px-2.5 py-1 rounded-md border text-xs ${isExpired ? "bg-rose-50 border-rose-200 text-rose-700 font-semibold" : "bg-[#F2F1ED] border-[#E5E5E0] text-amber-700"}`}>
+                    Hạn nộp: {formatDateTime(job.deadline)}
                   </span>
                 )}
               </div>
@@ -140,7 +149,21 @@ export default async function ExternalApplyPage({
           {/* Right Column: Apply Form (5 cols) */}
           <div className="lg:col-span-5">
             <div className="sticky top-24">
-              <ApplyFormClient jobId={job.id} jobTitle={job.title} companyName={job.company.name} />
+              {isClosed ? (
+                <div className="p-6 rounded-xl bg-white border border-[#E5E5E0] text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+                    <Calendar className="w-6 h-6" />
+                  </div>
+                  <h3 className="font-bold text-base text-[#0C0C0C]">
+                    Đã Hết Hạn Nhận Hồ Sơ
+                  </h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Đợt tuyển dụng vị trí <strong>{job.title}</strong> hiện đã kết thúc thời gian tiếp nhận hồ sơ ứng tuyển. Cảm ơn bạn đã quan tâm đến cơ hội nghề nghiệp tại {job.company.name}.
+                  </p>
+                </div>
+              ) : (
+                <ApplyFormClient jobId={job.id} jobTitle={job.title} companyName={job.company.name} />
+              )}
             </div>
           </div>
         </div>

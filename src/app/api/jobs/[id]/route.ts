@@ -82,6 +82,23 @@ export async function PUT(
       status,
     } = body;
 
+    let parsedDeadline: Date | null | undefined = undefined;
+    if (deadline !== undefined) {
+      if (deadline) {
+        parsedDeadline = new Date(deadline);
+        if (isNaN(parsedDeadline.getTime())) {
+          return NextResponse.json({ error: "Hạn chót nộp hồ sơ không đúng định dạng." }, { status: 400 });
+        }
+        if (parsedDeadline.getTime() <= Date.now()) {
+          return NextResponse.json({
+            error: "Hạn chót nộp hồ sơ phải sau thời điểm hiện tại (không được đặt trước hoặc trùng thời gian hiện tại).",
+          }, { status: 400 });
+        }
+      } else {
+        parsedDeadline = null;
+      }
+    }
+
     if (!isRealDatabaseConfigured()) {
       const job = mockStore.jobs.find((j) => j.id === params.id);
       if (!job) {
@@ -94,7 +111,7 @@ export async function PUT(
       if (benefits !== undefined) job.benefits = benefits?.trim() || null;
       if (salaryRange !== undefined) job.salaryRange = salaryRange?.trim() || null;
       if (quantity !== undefined) job.quantity = parseInt(quantity, 10);
-      if (deadline !== undefined) job.deadline = deadline;
+      if (deadline !== undefined) job.deadline = parsedDeadline ? parsedDeadline.toISOString() : null;
       if (status) job.status = status;
 
       if (departmentId !== undefined) {
@@ -139,7 +156,7 @@ export async function PUT(
     if (quantity !== undefined) updateData.quantity = parseInt(quantity, 10);
     if (departmentId !== undefined) updateData.departmentId = departmentId || null;
     if (processId !== undefined) updateData.processId = processId || null;
-    if (deadline !== undefined) updateData.deadline = deadline ? new Date(deadline) : null;
+    if (deadline !== undefined) updateData.deadline = parsedDeadline;
     if (status) updateData.status = status as JobStatus;
 
     const updated = await prisma.jobPosting.update({

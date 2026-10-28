@@ -123,6 +123,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Mô tả công việc không được để trống." }, { status: 400 });
     }
 
+    let parsedDeadline: Date | null = null;
+    if (deadline) {
+      parsedDeadline = new Date(deadline);
+      if (isNaN(parsedDeadline.getTime())) {
+        return NextResponse.json({ error: "Hạn chót nộp hồ sơ không đúng định dạng." }, { status: 400 });
+      }
+      if (parsedDeadline.getTime() <= Date.now()) {
+        return NextResponse.json({
+          error: "Hạn chót nộp hồ sơ phải sau thời điểm hiện tại (không được đặt trước hoặc trùng thời gian hiện tại).",
+        }, { status: 400 });
+      }
+    }
+
     if (!isRealDatabaseConfigured()) {
       const dept = mockStore.departments.find((d) => d.id === departmentId);
       const proc = mockStore.processes.find((p) => p.id === processId);
@@ -135,7 +148,7 @@ export async function POST(req: Request) {
         title: title.trim(),
         quantity: quantity ? parseInt(quantity, 10) : 1,
         salaryRange: salaryRange?.trim() || null,
-        deadline: deadline || null,
+        deadline: parsedDeadline ? parsedDeadline.toISOString() : null,
         description: description.trim(),
         requirements: requirements?.trim() || null,
         benefits: benefits?.trim() || null,
@@ -189,7 +202,7 @@ export async function POST(req: Request) {
         title: title.trim(),
         quantity: quantity ? parseInt(quantity, 10) : 1,
         salaryRange: salaryRange?.trim() || null,
-        deadline: deadline ? new Date(deadline) : null,
+        deadline: parsedDeadline,
         description: description.trim(),
         requirements: requirements?.trim() || null,
         benefits: benefits?.trim() || null,

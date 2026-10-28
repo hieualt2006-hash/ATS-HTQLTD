@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentSession, signAuthToken, AUTH_COOKIE_NAME } from "@/lib/auth";
+import { getCurrentSession, signAuthToken, AUTH_COOKIE_NAME, invalidateCompanyCache } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isRealDatabaseConfigured } from "@/lib/db-status";
 import { mockStore } from "@/lib/mock-store";
@@ -109,6 +109,7 @@ export async function PUT(req: Request) {
     };
 
     const comp = updateMock();
+    invalidateCompanyCache(session.companyId);
 
     const finalSlug = cleanSlug || comp.slug || session.companySlug;
 

@@ -80,9 +80,26 @@ export default function Header({ session }: HeaderProps) {
 
   useEffect(() => {
     fetchNotifications();
-    // Polling định kỳ mỗi 15 giây để cập nhật khi có CV mới hoặc AI đánh giá xong
-    const interval = setInterval(fetchNotifications, 15000);
-    return () => clearInterval(interval);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchNotifications();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Polling định kỳ mỗi 30 giây khi tab đang hoạt động
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        fetchNotifications();
+      }
+    }, 30000);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [fetchNotifications]);
 
   // Close popover when clicking outside

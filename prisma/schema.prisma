@@ -71,6 +71,7 @@ model Department {
   users       User[]
   jobPostings JobPosting[]
 
+  @@index([companyId])
   @@map("departments")
 }
 
@@ -93,6 +94,8 @@ model User {
   createdInterviews  Interview[]          @relation("InterviewCreator")
   chatHistories      ChatHistory[]
 
+  @@index([companyId])
+  @@index([companyId, role])
   @@map("users")
 }
 
@@ -109,6 +112,7 @@ model RecruitmentProcess {
   stages      ProcessStage[]
   jobPostings JobPosting[]
 
+  @@index([companyId])
   @@map("recruitment_processes")
 }
 
@@ -126,6 +130,7 @@ model ProcessStage {
   candidates Candidate[]
   interviews Interview[]
 
+  @@index([processId, orderIndex])
   @@map("process_stages")
 }
 
@@ -151,6 +156,10 @@ model JobPosting {
   createdBy  User?               @relation("JobCreator", fields: [createdById], references: [id], onDelete: SetNull)
   candidates Candidate[]
 
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
+  @@index([departmentId])
+  @@index([processId])
   @@map("job_postings")
 }
 
@@ -176,6 +185,11 @@ model Candidate {
   currentStage ProcessStage? @relation(fields: [currentStageId], references: [id], onDelete: SetNull)
   interviews   Interview[]
 
+  @@index([companyId, status])
+  @@index([companyId, jobPostingId])
+  @@index([companyId, appliedAt])
+  @@index([companyId, aiMatchScore])
+  @@index([currentStageId])
   @@map("candidates")
 }
 
@@ -202,6 +216,9 @@ model Interview {
   interviewer User?         @relation("Interviewer", fields: [interviewerId], references: [id], onDelete: SetNull)
   createdBy   User?         @relation("InterviewCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
+  @@index([companyId, startTime])
+  @@index([companyId, interviewerId])
+  @@index([candidateId])
   @@map("interviews")
 }
 
@@ -217,5 +234,7 @@ model ChatHistory {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([companyId, userId])
+  @@index([companyId, createdAt])
   @@map("chat_histories")
 }

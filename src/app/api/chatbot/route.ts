@@ -16,7 +16,6 @@ export async function GET() {
     const session = await getCurrentSession();
 
     if (session) {
-      const metrics = await getCompanySafeMetrics(session.companyId);
       return NextResponse.json({
         isAuthenticated: true,
         user: {
@@ -125,24 +124,24 @@ export async function POST(req: NextRequest) {
           temperature: 0.35,
         };
 
-        // Ưu tiên gemini-3.5-flash-lite siêu nhanh & thông minh, fallback gemini-3.5-flash
+        // Sử dụng mô hình Gemini Flash thế hệ mới tốc độ cao
         let response;
         try {
           response = await ai.models.generateContent({
-            model: "gemini-3.5-flash-lite",
+            model: "gemini-2.5-flash",
             contents,
             config,
           });
         } catch (e1: any) {
           try {
             response = await ai.models.generateContent({
-              model: "gemini-3.5-flash",
+              model: "gemini-2.0-flash",
               contents,
               config,
             });
           } catch (e2: any) {
             response = await ai.models.generateContent({
-              model: "gemini-3.8-flash",
+              model: "gemini-1.5-flash",
               contents,
               config,
             });

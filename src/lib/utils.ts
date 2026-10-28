@@ -47,3 +47,18 @@ export function formatDate(date: Date | string | null | undefined): string {
     year: "numeric",
   });
 }
+
+/**
+ * Định dạng ngày và giờ chi tiết (vd: 17:30 29/12/2026)
+ */
+export function formatDateTime(date: Date | string | null | undefined): string {
+  if (!date) return "--/--/----";
+  const d = new Date(date);
+  return d.toLocaleString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}

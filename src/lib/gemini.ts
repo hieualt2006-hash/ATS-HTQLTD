@@ -160,20 +160,20 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ:
       let response;
       try {
         response = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
+          model: "gemini-2.5-flash",
           contents,
           config,
         });
       } catch (e1: any) {
         try {
           response = await ai.models.generateContent({
-            model: "gemini-3.5-flash-lite",
+            model: "gemini-2.0-flash",
             contents,
             config,
           });
         } catch (e2: any) {
           response = await ai.models.generateContent({
-            model: "gemini-3.8-flash",
+            model: "gemini-1.5-flash",
             contents,
             config,
           });
