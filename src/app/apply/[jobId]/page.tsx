@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import ApplyFormClient from "./ApplyFormClient";
 import { Building2, Calendar, Users, MapPin, Briefcase } from "lucide-react";
@@ -59,7 +60,16 @@ export default async function ExternalApplyPage({
             </div>
           </div>
 
-          <div className="text-right">
+          <div className="flex items-center gap-3">
+            {job.company.slug && (
+              <Link
+                href={`/careers/${job.company.slug}`}
+                className="text-xs font-semibold text-slate-600 hover:text-[#16a34a] flex items-center gap-1 transition-colors mr-1"
+                title={`Xem tất cả vị trí tuyển dụng tại ${job.company.name}`}
+              >
+                <span>← Tất cả việc làm</span>
+              </Link>
+            )}
             {isClosed ? (
               <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
                 ● Đã Hết Hạn Nộp Hồ Sơ

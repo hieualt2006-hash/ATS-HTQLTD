@@ -26,6 +26,7 @@ import {
   ExternalLink,
   ChevronRight,
   Eye,
+  Globe,
 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
@@ -82,6 +83,8 @@ export default function JobsPage() {
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [companySlug, setCompanySlug] = useState("");
+  const [copiedPortal, setCopiedPortal] = useState(false);
 
   // Modals & Submitting state
   const [mounted, setMounted] = useState(false);
@@ -117,12 +120,13 @@ export default function JobsPage() {
     }, 4000);
   };
 
-  // Fetch Departments & Processes once on mount
+  // Fetch Departments, Processes & Company Info once on mount
   const fetchOptions = async () => {
     try {
-      const [deptRes, procRes] = await Promise.all([
+      const [deptRes, procRes, compRes] = await Promise.all([
         fetch("/api/company/departments"),
         fetch("/api/processes"),
+        fetch("/api/company/info"),
       ]);
       if (deptRes.ok) {
         const dData = await deptRes.json();
@@ -131,6 +135,12 @@ export default function JobsPage() {
       if (procRes.ok) {
         const pData = await procRes.json();
         setProcesses(pData.processes || []);
+      }
+      if (compRes.ok) {
+        const cData = await compRes.json();
+        if (cData.company?.slug) {
+          setCompanySlug(cData.company.slug);
+        }
       }
     } catch {}
   };
@@ -314,6 +324,17 @@ export default function JobsPage() {
     setTimeout(() => setCopiedId(null), 3000);
   };
 
+  // Copy Link Cổng Tuyển Dụng Tổng (Web Portal)
+  const handleCopyPortalLink = () => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const slug = companySlug || "rumble";
+    const publicUrl = `${origin}/careers/${slug}`;
+    navigator.clipboard.writeText(publicUrl);
+    setCopiedPortal(true);
+    showNotification("Đã sao chép đường link Cổng tuyển dụng tổng của doanh nghiệp!");
+    setTimeout(() => setCopiedPortal(false), 3000);
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "OPEN":
@@ -386,17 +407,50 @@ export default function JobsPage() {
 
       {/* Filter and Search Bar */}
       <div className="p-4 rounded-xl bg-white border border-[#E5E5E0] flex flex-col lg:flex-row items-center justify-between gap-3">
-        {/* Search */}
-        <form onSubmit={handleSearch} className="relative w-full lg:w-96">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Tìm theo chức danh hoặc mô tả công việc..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-white border border-[#E5E5E0] rounded-lg text-xs text-[#0C0C0C] placeholder-slate-400 focus:outline-none focus:border-[#16a34a]"
-          />
-        </form>
+        {/* Search & Career Portal Link (Vị trí ô đỏ đánh dấu) */}
+        <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full lg:w-auto flex-1">
+          <form onSubmit={handleSearch} className="relative w-full sm:w-80">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Tìm theo chức danh hoặc mô tả công việc..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-white border border-[#E5E5E0] rounded-lg text-xs text-[#0C0C0C] placeholder-slate-400 focus:outline-none focus:border-[#16a34a]"
+            />
+          </form>
+
+          {/* Nút Cổng Tuyển Dụng Doanh Nghiệp (Career Portal hiển thị danh sách nhiều job) */}
+          <div className="flex items-center gap-1 bg-[#16a34a]/10 border border-[#16a34a]/30 rounded-lg p-1 pr-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleCopyPortalLink}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold text-[#16a34a] hover:bg-[#16a34a] hover:text-white transition-all cursor-pointer"
+              title={`Sao chép link Cổng tuyển dụng tổng: /careers/${companySlug || "rumble"}`}
+            >
+              {copiedPortal ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Đã sao chép!</span>
+                </>
+              ) : (
+                <>
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>Link Cổng Tuyển Dụng Doanh Nghiệp</span>
+                  <Copy className="w-3 h-3 opacity-70" />
+                </>
+              )}
+            </button>
+            <Link
+              href={`/careers/${companySlug || "rumble"}`}
+              target="_blank"
+              className="p-1 rounded-md hover:bg-emerald-100 text-[#16a34a] transition-colors"
+              title="Mở Cổng tuyển dụng tổng trong tab mới"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
 
         {/* Dropdown Filters */}
         <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
