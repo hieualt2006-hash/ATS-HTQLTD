@@ -1,31 +1,31 @@
 @echo off
 chcp 65001 >nul
-title ATS - Hệ Thống Quản Lý Tuyển Dụng (Dev Server)
+title ATS - He Thong Quan Ly Tuyen Dung (Dev Server)
 
-:: Chuyển thư mục làm việc về thư mục chứa file .bat này
+:: Chuyen thu muc lam viec ve thu muc chua file .bat nay
 cd /d "%~dp0"
 
 echo ===================================================================
-echo     HỆ THỐNG QUẢN LÝ TUYỂN DỤNG ATS-HTQLTD
+echo     HE THONG QUAN LY TUYEN DUNG ATS ENTERPRISE (B2B SaaS)
 echo ===================================================================
 echo.
-echo [*] Đang kiểm tra môi trường Node.js...
+echo [*] Dang kiem tra moi truong Node.js...
 
 where npm >nul 2>nul
 if %errorlevel% neq 0 (
-    echo [LỖI] Không tìm thấy Node.js / npm trong hệ thống!
-    echo Vui lòng cài đặt Node.js từ: https://nodejs.org/
+    echo [LOI] Khong tim thay Node.js / npm trong he thong!
+    echo Vui long cai dat Node.js tu: https://nodejs.org/
     echo.
     pause
     exit /b 1
 )
 
-:: Tự động cài đặt thư viện nếu chưa có node_modules
+:: Tu dong cai dat dependencies neu chua co node_modules
 if not exist "node_modules" (
-    echo [*] Chưa tìm thấy node_modules, đang chạy npm install...
+    echo [*] Chua tim thay node_modules, dang chay npm install...
     call npm install
     if %errorlevel% neq 0 (
-        echo [LỖI] Cài đặt dependencies thất bại!
+        echo [LOI] Cai dat dependencies that bai!
         pause
         exit /b 1
     )
@@ -34,15 +34,15 @@ if not exist "node_modules" (
 echo.
 echo ===================================================================
 echo  [+] Localhost URL : http://localhost:3000
-echo  [+] Trình duyệt   : Tự động mở sau 3 giây...
-echo  [+] Dừng server   : Nhấn Ctrl + C tại cửa sổ này
+echo  [+] Trinh duyet   : Tu dong mo sau 3 giay...
+echo  [+] Dung server   : Nhan Ctrl + C tai cua so nay
 echo ===================================================================
 echo.
 
-:: Tự động mở trình duyệt sau 3 giây (chạy ngầm để Next.js kịp khởi động)
+:: Tu dong mo trinh duyet sau 3 giay
 start "" /b powershell -WindowStyle Hidden -Command "Start-Sleep -Seconds 3; Start-Process 'http://localhost:3000'"
 
-:: Khởi chạy Next.js dev server
+:: Khoi chay Next.js dev server
 call npm run dev
 
 pause
