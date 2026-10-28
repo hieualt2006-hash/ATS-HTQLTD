@@ -2,11 +2,10 @@
 chcp 65001 >nul
 title ATS - He Thong Quan Ly Tuyen Dung (Dev Server)
 
-:: Chuyen thu muc lam viec ve thu muc chua file .bat nay
 cd /d "%~dp0"
 
 echo ===================================================================
-echo     HE THONG QUAN LY TUYEN DUNG ATS ENTERPRISE (B2B SaaS)
+echo     HE THONG QUAN LY TUYEN DUNG ATS-HTQLTD (Dev Server)
 echo ===================================================================
 echo.
 echo [*] Dang kiem tra moi truong Node.js...
@@ -20,19 +19,14 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: Giai phong cong 3000 neu co tien trinh cu dang chiem
+echo [*] Dang don dep cac tien trinh Node cu va giai phong cong 3000...
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'node.exe' -and $_.CommandLine -like '*ATS-HTQLTD*') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
+
+:: Giai phong cuong che port 3000 neu con tien trinh nao khac chiem dung
 for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr :3000 ^| findstr LISTENING') do (
-    echo [*] Dang don dep tien trinh cu tren cong 3000 (PID: %%a)...
     taskkill /f /pid %%a >nul 2>&1
 )
 
-:: Xoa sach cache .next de tranh loi xung dot manifest va mat CSS
-if exist ".next" (
-    echo [*] Dang lam sach cache .next de nap day du CSS va icon moi nhat...
-    rmdir /s /q ".next" >nul 2>&1
-)
-
-:: Tu dong cai dat dependencies neu chua co node_modules
 if not exist "node_modules" (
     echo [*] Chua tim thay node_modules, dang chay npm install...
     call npm install
@@ -43,18 +37,24 @@ if not exist "node_modules" (
     )
 )
 
+echo [*] Dang lam sach cache .next de nap day du code va giao dien moi nhat...
+if exist ".next" (
+    rmdir /s /q ".next" >nul 2>&1
+)
+
+echo [*] Dang dong bo Prisma Client...
+call npx prisma generate >nul 2>&1
+
 echo.
 echo ===================================================================
 echo  [+] Localhost URL : http://localhost:3000
-echo  [+] Trinh duyet   : Tu dong mo sau 3 giay...
-echo  [+] Dung server   : Nhan Ctrl + C tai cua so nay
+echo  [+] Trinh duyet   : Tu dong mo sau 3 giay
+echo  [+] Dung server   : Nhan Ctrl + C hoac dong cua so nay
 echo ===================================================================
 echo.
 
-:: Tu dong mo trinh duyet sau 3 giay
-start "" /b powershell -WindowStyle Hidden -Command "Start-Sleep -Seconds 3; Start-Process 'http://localhost:3000'"
+start "" powershell -NoProfile -WindowStyle Hidden -Command "Start-Sleep -Seconds 3; Start-Process 'http://localhost:3000'"
 
-:: Khoi chay Next.js dev server
-call npm run dev
+call npx next dev -p 3000
 
 pause
