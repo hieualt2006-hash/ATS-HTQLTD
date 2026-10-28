@@ -136,8 +136,8 @@ export default function JobsPage() {
   };
 
   // Fetch Jobs & Filters
-  const fetchJobs = async () => {
-    setLoading(true);
+  const fetchJobs = async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     try {
       const params = new URLSearchParams();
       if (searchTerm) params.append("search", searchTerm);
@@ -152,17 +152,18 @@ export default function JobsPage() {
     } catch (err: any) {
       showNotification(err.message, true);
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   };
 
   useEffect(() => {
     setMounted(true);
     fetchOptions();
+    fetchJobs(true);
   }, []);
 
   useEffect(() => {
-    fetchJobs();
+    fetchJobs(false);
   }, [selectedDept, selectedStatus]);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -220,7 +221,7 @@ export default function JobsPage() {
         requirements: "",
         benefits: "",
       });
-      fetchJobs();
+      fetchJobs(false);
     } catch (err: any) {
       showNotification(err.message, true);
     } finally {
@@ -253,7 +254,7 @@ export default function JobsPage() {
 
       showNotification("Cập nhật thông tin đợt tuyển dụng thành công!");
       setEditingJob(null);
-      fetchJobs();
+      fetchJobs(false);
     } catch (err: any) {
       showNotification(err.message, true);
     } finally {
@@ -261,8 +262,11 @@ export default function JobsPage() {
     }
   };
 
-  // Toggle Status
+  // Toggle Status (Cập nhật tức thì không reload trang)
   const handleToggleStatus = async (job: JobPostingItem, newStatus: "OPEN" | "CLOSED") => {
+    setJobs((prev) =>
+      prev.map((j) => (j.id === job.id ? { ...j, status: newStatus } : j))
+    );
     try {
       const res = await fetch(`/api/jobs/${job.id}`, {
         method: "PUT",
@@ -270,25 +274,31 @@ export default function JobsPage() {
         body: JSON.stringify({ status: newStatus }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Không thể đổi trạng thái.");
+      if (!res.ok) {
+        fetchJobs(false);
+        throw new Error(data.error || "Không thể đổi trạng thái.");
+      }
 
       showNotification(`Đã ${newStatus === "OPEN" ? "mở" : "đóng"} tuyển cho vị trí "${job.title}"`);
-      fetchJobs();
     } catch (err: any) {
       showNotification(err.message, true);
     }
   };
 
-  // Delete Job
+  // Delete Job (Xóa tức thì trên UI 0ms, không xoay loader toàn trang)
   const handleDeleteJob = async (id: string, title: string) => {
     if (!confirm(`Bạn có chắc chắn muốn xóa đợt tuyển dụng "${title}" không?`)) return;
+    // Cập nhật tức thì trên giao diện
+    setJobs((prev) => prev.filter((j) => j.id !== id));
     try {
       const res = await fetch(`/api/jobs/${id}`, { method: "DELETE" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Không thể xóa đợt tuyển dụng.");
+      if (!res.ok) {
+        fetchJobs(false);
+        throw new Error(data.error || "Không thể xóa đợt tuyển dụng.");
+      }
 
       showNotification(`Đã xóa đợt tuyển dụng "${title}" thành công.`);
-      fetchJobs();
     } catch (err: any) {
       showNotification(err.message, true);
     }
