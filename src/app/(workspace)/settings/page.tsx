@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Building2,
@@ -64,6 +65,10 @@ interface CompanyInfo {
 }
 
 export default function SettingsPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"users" | "departments" | "company">("users");
 
@@ -736,8 +741,8 @@ export default function SettingsPage() {
       )}
 
       {/* ================= MODAL: ADD USER ================= */}
-      {showAddUserModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      {mounted && showAddUserModal && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-white border border-[#E5E5E0] rounded-2xl p-6 shadow-xl relative">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E5E5E0]">
               <h3 className="text-base font-bold text-[#0C0C0C] flex items-center gap-2">
@@ -847,12 +852,13 @@ export default function SettingsPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ================= MODAL: ADD DEPARTMENT ================= */}
-      {showAddDeptModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      {mounted && showAddDeptModal && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white border border-[#E5E5E0] rounded-2xl p-6 shadow-xl relative">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E5E5E0]">
               <h3 className="text-base font-bold text-[#0C0C0C] flex items-center gap-2">
@@ -912,12 +918,13 @@ export default function SettingsPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ================= MODAL: EDIT DEPARTMENT ================= */}
-      {editingDept && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      {mounted && editingDept && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white border border-[#E5E5E0] rounded-2xl p-6 shadow-xl relative">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E5E5E0]">
               <h3 className="text-base font-bold text-[#0C0C0C] flex items-center gap-2">
@@ -975,12 +982,13 @@ export default function SettingsPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ================= MODAL: RESET PASSWORD ================= */}
-      {resetPassUser && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      {mounted && resetPassUser && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-white border border-[#E5E5E0] rounded-2xl p-6 shadow-xl relative">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E5E5E0]">
               <h3 className="text-base font-bold text-[#0C0C0C] flex items-center gap-2">
@@ -1028,7 +1036,8 @@ export default function SettingsPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

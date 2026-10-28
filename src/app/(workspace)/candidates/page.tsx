@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   Users,
@@ -76,6 +77,10 @@ interface JobPostingOption {
 }
 
 export default function CandidatesPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [candidates, setCandidates] = useState<CandidateItem[]>([]);
   const [jobs, setJobs] = useState<JobPostingOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -769,8 +774,8 @@ export default function CandidatesPage() {
       )}
 
       {/* ================= MODAL: HR UPLOAD CV ================= */}
-      {showUploadModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      {mounted && showUploadModal && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-white border border-[#E5E5E0] rounded-2xl p-6 shadow-xl relative">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E5E5E0]">
               <h3 className="text-base font-bold text-[#0C0C0C] flex items-center gap-2">
@@ -912,12 +917,13 @@ export default function CandidatesPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ================= MODAL: CANDIDATE DETAIL ================= */}
-      {selectedCandidate && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      {mounted && selectedCandidate && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-3xl bg-white border border-[#E5E5E0] rounded-2xl p-6 shadow-xl relative max-h-[90vh] overflow-y-auto space-y-5">
             {/* Header */}
             <div className="flex items-start justify-between pb-4 border-b border-[#E5E5E0] sticky top-0 bg-white z-10">
@@ -1114,7 +1120,8 @@ export default function CandidatesPage() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

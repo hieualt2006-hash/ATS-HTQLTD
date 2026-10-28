@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   GitBranch,
@@ -48,6 +49,10 @@ interface RecruitmentProcess {
 }
 
 export default function ProcessesPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [processes, setProcesses] = useState<RecruitmentProcess[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -380,8 +385,8 @@ export default function ProcessesPage() {
       )}
 
       {/* ================= MODAL: ADD PROCESS ================= */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      {mounted && showAddModal && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-white border border-[#E5E5E0] rounded-2xl p-6 shadow-xl relative">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E5E5E0]">
               <h3 className="text-base font-bold text-[#0C0C0C] flex items-center gap-2">
@@ -479,12 +484,13 @@ export default function ProcessesPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ================= MODAL: EDIT PROCESS ================= */}
-      {editingProcess && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      {mounted && editingProcess && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white border border-[#E5E5E0] rounded-2xl p-6 shadow-xl relative">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E5E5E0]">
               <h3 className="text-base font-bold text-[#0C0C0C] flex items-center gap-2">
@@ -542,7 +548,8 @@ export default function ProcessesPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

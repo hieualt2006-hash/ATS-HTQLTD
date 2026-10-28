@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -51,6 +52,10 @@ function formatTimeAgo(isoString: string): string {
 }
 
 export default function Header({ session }: HeaderProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -402,8 +407,8 @@ export default function Header({ session }: HeaderProps) {
       </header>
 
       {/* ================= MODAL TÌM KIẾM NHANH ================= */}
-      {showSearchModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-start justify-center pt-20 p-4">
+      {mounted && showSearchModal && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-start justify-center pt-20 p-4">
           <div className="bg-white rounded-2xl border border-[#E5E5E0] max-w-lg w-full p-4 shadow-2xl space-y-3">
             <div className="flex items-center gap-2.5 pb-2 border-b border-[#E5E5E0]">
               <img src="/icons/search.png" alt="Search" className="w-4 h-4 opacity-70" />
@@ -448,7 +453,8 @@ export default function Header({ session }: HeaderProps) {
               ))}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

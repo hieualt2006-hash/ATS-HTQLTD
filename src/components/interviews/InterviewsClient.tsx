@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   Video,
@@ -68,6 +69,10 @@ interface InterviewsClientProps {
 }
 
 export default function InterviewsClient({ session }: InterviewsClientProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [interviews, setInterviews] = useState<InterviewItem[]>([]);
   const [candidates, setCandidates] = useState<CandidateOption[]>([]);
   const [interviewers, setInterviewers] = useState<UserOption[]>([]);
@@ -647,8 +652,8 @@ export default function InterviewsClient({ session }: InterviewsClientProps) {
       )}
 
       {/* ================= MODAL 1: TẠO LỊCH PHỎNG VẤN MỚI ================= */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+      {mounted && showCreateModal && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl border border-[#E5E5E0] max-w-lg w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#E5E5E0]">
               <div className="flex items-center gap-2.5">
@@ -814,12 +819,13 @@ export default function InterviewsClient({ session }: InterviewsClientProps) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ================= MODAL 2: CHẤM ĐIỂM & ĐÁNH GIÁ ================= */}
-      {evaluatingInterview && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+      {mounted && evaluatingInterview && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl border border-[#E5E5E0] max-w-lg w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#E5E5E0]">
               <div className="flex items-center gap-2.5">
@@ -949,7 +955,8 @@ export default function InterviewsClient({ session }: InterviewsClientProps) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

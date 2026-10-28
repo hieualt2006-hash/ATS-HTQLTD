@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   Calendar as CalendarIcon,
@@ -163,6 +164,10 @@ const VIETNAMESE_DAYS = ["THỨ 2", "THỨ 3", "THỨ 4", "THỨ 5", "THỨ 6", 
 const DAY_FULL_NAMES = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
 
 export default function CalendarClient({ session }: CalendarClientProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<MockCalendarEvent[]>([]);
   const [candidates, setCandidates] = useState<CandidateOption[]>([]);
@@ -1289,9 +1294,9 @@ export default function CalendarClient({ session }: CalendarClientProps) {
       </div>
 
       {/* 3. GOOGLE CALENDAR CENTERED EVENT SETTINGS MODAL (CLICK PHẢI CHUỘT - HIỂN THỊ GIỮA MÀN HÌNH & LỚN RỘNG) */}
-      {contextMenu && (
+      {mounted && contextMenu && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-100"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-100"
           onClick={() => setContextMenu(null)}
         >
           <div
@@ -1583,12 +1588,13 @@ export default function CalendarClient({ session }: CalendarClientProps) {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 4. MODAL: TẠO MỚI HOẶC CHỈNH SỬA CHI TIẾT SỰ KIỆN */}
-      {(showCreateModal || editEventModal) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-100">
+      {mounted && (showCreateModal || editEventModal) && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-100">
           <div className="bg-white rounded-2xl border border-[#E5E5E0] shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -1808,13 +1814,14 @@ export default function CalendarClient({ session }: CalendarClientProps) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 5. MODAL XÁC NHẬN XÓA SỰ KIỆN LẶP LẠI (HỎI XÓA CHỈ BUỔI NÀY HAY TẤT CẢ CÁC BUỔI) */}
-      {deleteConfirm && (
+      {mounted && deleteConfirm && createPortal(
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 backdrop-blur-xs p-4 animate-in fade-in duration-100"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-100"
           onClick={() => setDeleteConfirm(null)}
         >
           <div
@@ -1937,7 +1944,8 @@ export default function CalendarClient({ session }: CalendarClientProps) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

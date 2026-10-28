@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -51,6 +52,10 @@ interface ProcessDetail {
 }
 
 export default function ProcessDetailPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const params = useParams();
   const router = useRouter();
   const processId = params.id as string;
@@ -424,8 +429,8 @@ export default function ProcessDetailPage() {
       </div>
 
       {/* ================= MODAL: ADD STAGE ================= */}
-      {showAddStageModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      {mounted && showAddStageModal && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-white border border-[#E5E5E0] rounded-2xl p-6 shadow-xl relative">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E5E5E0]">
               <h3 className="text-base font-bold text-[#0C0C0C] flex items-center gap-2">
@@ -541,12 +546,13 @@ export default function ProcessDetailPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ================= MODAL: EDIT STAGE ================= */}
-      {editingStage && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      {mounted && editingStage && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-white border border-[#E5E5E0] rounded-2xl p-6 shadow-xl relative">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E5E5E0]">
               <h3 className="text-base font-bold text-[#0C0C0C] flex items-center gap-2">
@@ -662,12 +668,13 @@ export default function ProcessDetailPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ================= MODAL: EDIT PROCESS ================= */}
-      {showEditProcessModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      {mounted && showEditProcessModal && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white border border-[#E5E5E0] rounded-2xl p-6 shadow-xl relative">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-[#E5E5E0]">
               <h3 className="text-base font-bold text-[#0C0C0C] flex items-center gap-2">
@@ -725,7 +732,8 @@ export default function ProcessDetailPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
