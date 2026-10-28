@@ -20,6 +20,18 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+:: Giai phong cong 3000 neu co tien trinh cu dang chiem
+for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr :3000 ^| findstr LISTENING') do (
+    echo [*] Dang don dep tien trinh cu tren cong 3000 (PID: %%a)...
+    taskkill /f /pid %%a >nul 2>&1
+)
+
+:: Xoa sach cache .next de tranh loi xung dot manifest va mat CSS
+if exist ".next" (
+    echo [*] Dang lam sach cache .next de nap day du CSS va icon moi nhat...
+    rmdir /s /q ".next" >nul 2>&1
+)
+
 :: Tu dong cai dat dependencies neu chua co node_modules
 if not exist "node_modules" (
     echo [*] Chua tim thay node_modules, dang chay npm install...
