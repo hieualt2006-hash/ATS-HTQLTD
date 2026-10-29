@@ -56,6 +56,7 @@ model Company {
   candidates           Candidate[]
   interviews           Interview[]
   chatHistories        ChatHistory[]
+  notifications        Notification[]
 
   @@map("companies")
 }
@@ -237,4 +238,24 @@ model ChatHistory {
   @@index([companyId, userId])
   @@index([companyId, createdAt])
   @@map("chat_histories")
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  companyId   String
+  type        String
+  title       String
+  message     String   @db.Text
+  candidateId String?
+  jobTitle    String?
+  matchScore  Int?
+  link        String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, isRead])
+  @@index([companyId, createdAt])
+  @@map("notifications")
 }

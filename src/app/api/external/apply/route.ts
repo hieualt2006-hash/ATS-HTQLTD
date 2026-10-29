@@ -223,6 +223,42 @@ export async function POST(req: Request) {
       },
     });
 
+    // Tự động tạo thông báo hồ sơ mới và điểm AI vào database
+    try {
+      await prisma.notification.create({
+        data: {
+          companyId: job.companyId,
+          type: "EXTERNAL_CV",
+          title: "Ứng viên mới nộp CV trực tuyến",
+          message: `${fullName.trim()} vừa nộp hồ sơ ứng tuyển vị trí "${job.title}".`,
+          candidateId: candidate.id,
+          jobTitle: job.title,
+          link: "/candidates",
+          isRead: false,
+        },
+      });
+
+      if (aiMatchScore !== null && aiMatchScore !== undefined) {
+        await prisma.notification.create({
+          data: {
+            companyId: job.companyId,
+            type: "AI_EVALUATION",
+            title: `AI đã chấm điểm CV (${aiMatchScore}%)`,
+            message: `Hồ sơ ${fullName.trim()} đạt ${aiMatchScore}% tiêu chuẩn vị trí "${job.title}". ${
+              aiMatchScore >= 80 ? "Ứng viên rất tiềm năng!" : aiMatchScore >= 50 ? "Đạt tiêu chuẩn." : "Cần xem xét thêm."
+            }`,
+            candidateId: candidate.id,
+            jobTitle: job.title,
+            matchScore: aiMatchScore,
+            link: "/candidates",
+            isRead: false,
+          },
+        });
+      }
+    } catch (notifErr) {
+      console.error("Lỗi tạo thông báo:", notifErr);
+    }
+
     return NextResponse.json({
       success: true,
       message: `Đã gửi hồ sơ ứng tuyển vị trí "${job.title}" tới phòng Nhân sự ${job.company.name} thành công!`,
