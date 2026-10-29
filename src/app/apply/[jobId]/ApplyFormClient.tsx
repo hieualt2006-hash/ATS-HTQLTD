@@ -17,7 +17,6 @@ interface ApplyFormClientProps {
   initialJob: {
     id: string;
     title: string;
-    quantity: number;
     salaryRange?: string | null;
     deadline?: string | null;
     isClosed?: boolean;
@@ -40,10 +39,12 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
   const [isSuccess, setIsSuccess] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Đồng bộ thời gian thực tên và số lượng job từ database / mockStore
+  // Đồng bộ thời gian thực tên và trạng thái job từ tài khoản doanh nghiệp
   const fetchLatestJob = useCallback(async () => {
     try {
-      const res = await fetch(`/api/external/jobs?jobId=${encodeURIComponent(job.id)}`);
+      const res = await fetch(`/api/external/jobs?jobId=${encodeURIComponent(job.id)}`, {
+        cache: "no-store",
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.job) {
@@ -56,13 +57,16 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
   }, [job.id]);
 
   useEffect(() => {
-    const interval = setInterval(fetchLatestJob, 10000);
-    const handleFocus = () => fetchLatestJob();
-    window.addEventListener("focus", handleFocus);
+    // Tự động đồng bộ mỗi 3 giây, khi focus tab hoặc khi tab hiển thị lại
+    const interval = setInterval(fetchLatestJob, 3000);
+    const handleSync = () => fetchLatestJob();
+    window.addEventListener("focus", handleSync);
+    document.addEventListener("visibilitychange", handleSync);
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("focus", handleSync);
+      document.removeEventListener("visibilitychange", handleSync);
     };
   }, [fetchLatestJob]);
 
@@ -138,23 +142,23 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#F2F1ED] text-[#0C0C0C] flex items-center justify-center p-4 sm:p-6 md:p-8 font-sans selection:bg-[#16a34a] selection:text-white">
-      {/* Khung ô Form to ở chính giữa màn hình */}
-      <div className="w-full max-w-3xl bg-white rounded-3xl border border-[#E5E5E0] shadow-sm p-6 sm:p-10 md:p-12 transition-all">
+    <div className="min-h-screen bg-[#F2F1ED] text-[#0C0C0C] flex items-center justify-center p-3 sm:p-4 font-sans selection:bg-[#16a34a] selection:text-white">
+      {/* Khung ô Form to ở chính giữa màn hình, chiều cao tối ưu không cần cuộn */}
+      <div className="w-full max-w-[580px] bg-white rounded-2xl sm:rounded-3xl border border-[#E5E5E0] shadow-sm p-4 sm:p-6 transition-all">
         {isSuccess ? (
-          <div className="text-center py-6 space-y-5">
-            <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto text-[#16a34a]">
-              <CheckCircle2 className="w-10 h-10" />
+          <div className="text-center py-4 space-y-4">
+            <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto text-[#16a34a]">
+              <CheckCircle2 className="w-7 h-7" />
             </div>
 
             <div>
-              <h2 className="text-2xl font-bold text-[#0C0C0C] mb-2">Ứng Tuyển Thành Công!</h2>
-              <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+              <h2 className="text-lg sm:text-xl font-bold text-[#0C0C0C] mb-1">Ứng Tuyển Thành Công!</h2>
+              <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
                 {successMsg}
               </p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-[#F2F1ED] border border-[#E5E5E0] text-xs text-slate-700 max-w-md mx-auto text-left space-y-1.5">
+            <div className="p-3 rounded-xl bg-[#F2F1ED] border border-[#E5E5E0] text-xs text-slate-700 max-w-sm mx-auto text-left space-y-1">
               <div className="flex justify-between">
                 <span className="text-slate-500">Doanh nghiệp:</span>
                 <span className="font-bold text-[#0C0C0C]">{job.company.name}</span>
@@ -169,60 +173,54 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
               </div>
             </div>
 
-            <div className="pt-3">
+            <div className="pt-2">
               <button
                 type="button"
                 onClick={handleResetForm}
-                className="px-6 py-2.5 rounded-xl bg-[#16a34a] hover:bg-[#15803d] text-white text-xs font-semibold transition-colors cursor-pointer"
+                className="px-5 py-2 rounded-xl bg-[#16a34a] hover:bg-[#15803d] text-white text-xs font-semibold transition-colors cursor-pointer"
               >
                 Gửi lại hồ sơ khác
               </button>
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-3.5">
             {/* Lỗi cảnh báo nếu có */}
             {errorMessage && (
-              <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                 <span>{errorMessage}</span>
               </div>
             )}
 
-            {/* 1. VỊ TRÍ TUYỂN DỤNG * (Ghi sẵn tên job đó luôn) */}
+            {/* 1. VỊ TRÍ TUYỂN DỤNG * (Ghi sẵn tên job đó luôn, KHÔNG hiển thị số lượng) */}
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-[#0C0C0C] tracking-wide">
-                  <Briefcase className="w-4 h-4 text-[#0C0C0C]" />
+                  <Briefcase className="w-3.5 h-3.5 text-[#0C0C0C]" />
                   <span>VỊ TRÍ TUYỂN DỤNG</span>
                   <span className="text-rose-500">*</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  {job.isClosed ? (
-                    <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
-                      Đã hết hạn
-                    </span>
-                  ) : (
-                    <span className="text-xs text-slate-500 font-medium">
-                      Đang tuyển: <strong className="text-slate-800">{job.quantity}</strong> người
-                    </span>
-                  )}
-                </div>
+                {job.isClosed && (
+                  <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                    Đã hết hạn
+                  </span>
+                )}
               </div>
 
-              {/* Ô hiển thị tên job cố định */}
-              <div className="w-full px-4 py-3 bg-[#F8F8F6] border border-[#E5E5E0] rounded-xl text-xs sm:text-sm font-semibold text-[#0C0C0C] flex items-center justify-between select-none">
+              {/* Ô hiển thị tên job cố định (không hiển thị số lượng) */}
+              <div className="w-full px-3 py-2 sm:py-2.5 bg-[#F8F8F6] border border-[#E5E5E0] rounded-xl text-xs sm:text-[13px] font-semibold text-[#0C0C0C] flex items-center justify-between select-none">
                 <div className="flex items-center gap-2 truncate">
                   <span className="truncate">{job.title}</span>
                   {job.department && (
-                    <span className="text-[11px] font-medium text-slate-600 bg-white px-2 py-0.5 rounded-md border border-[#E5E5E0] shrink-0">
+                    <span className="text-[10px] sm:text-[11px] font-medium text-slate-600 bg-white px-2 py-0.5 rounded-md border border-[#E5E5E0] shrink-0">
                       {job.department.name}
                     </span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-2">
                   {job.salaryRange && (
-                    <span className="text-[11px] font-bold text-[#16a34a] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md font-mono">
+                    <span className="text-[10px] sm:text-[11px] font-bold text-[#16a34a] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md font-mono">
                       {job.salaryRange}
                     </span>
                   )}
@@ -235,7 +233,7 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
 
             {/* 2. HỌ VÀ TÊN ỨNG VIÊN * */}
             <div>
-              <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-2">
+              <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-1">
                 HỌ VÀ TÊN ỨNG VIÊN <span className="text-rose-500">*</span>
               </label>
               <input
@@ -245,14 +243,14 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
                 placeholder="VD: Nguyễn Văn A"
                 value={formData.fullName}
                 onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                className="w-full px-4 py-3 bg-white border border-[#E5E5E0] rounded-xl text-xs sm:text-sm text-[#0C0C0C] placeholder:text-slate-400 focus:outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a] transition-all disabled:bg-slate-50 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 sm:py-2.5 bg-white border border-[#E5E5E0] rounded-xl text-xs sm:text-[13px] text-[#0C0C0C] placeholder:text-slate-400 focus:outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a] transition-all disabled:bg-slate-50 disabled:cursor-not-allowed"
               />
             </div>
 
             {/* 3. ĐỊA CHỈ EMAIL * & SỐ ĐIỆN THOẠI */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3.5">
               <div>
-                <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-2">
+                <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-1">
                   ĐỊA CHỈ EMAIL <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -262,12 +260,12 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
                   placeholder="VD: nguyenvana@gmail.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-4 py-3 bg-white border border-[#E5E5E0] rounded-xl text-xs sm:text-sm text-[#0C0C0C] placeholder:text-slate-400 focus:outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a] transition-all disabled:bg-slate-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 sm:py-2.5 bg-white border border-[#E5E5E0] rounded-xl text-xs sm:text-[13px] text-[#0C0C0C] placeholder:text-slate-400 focus:outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a] transition-all disabled:bg-slate-50 disabled:cursor-not-allowed"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-2">
+                <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-1">
                   SỐ ĐIỆN THOẠI
                 </label>
                 <input
@@ -276,14 +274,14 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
                   placeholder="VD: 0912 345 678"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-4 py-3 bg-white border border-[#E5E5E0] rounded-xl text-xs sm:text-sm text-[#0C0C0C] placeholder:text-slate-400 focus:outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a] transition-all disabled:bg-slate-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 sm:py-2.5 bg-white border border-[#E5E5E0] rounded-xl text-xs sm:text-[13px] text-[#0C0C0C] placeholder:text-slate-400 focus:outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a] transition-all disabled:bg-slate-50 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
 
-            {/* 4. HỒ SƠ CV (ĐỊNH DẠNG PDF, TỐI ĐA 10MB) * */}
+            {/* 4. HỒ SƠ CV (ĐỊNH DẠNG PDF, TỐI ĐA 10MB) * - Thiết kế gọn gàng */}
             <div>
-              <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-2">
+              <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-1">
                 HỒ SƠ CV (ĐỊNH DẠNG PDF, TỐI ĐA 10MB) <span className="text-rose-500">*</span>
               </label>
 
@@ -310,7 +308,7 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
                     setErrorMessage("");
                   }
                 }}
-                className={`relative border-2 border-dashed border-[#E5E5E0] rounded-2xl p-8 sm:p-10 text-center transition-all bg-[#FAFAF8] ${
+                className={`relative border-2 border-dashed border-[#E5E5E0] rounded-xl p-3.5 sm:p-4 text-center transition-all bg-[#FAFAF8] ${
                   job.isClosed ? "opacity-60 cursor-not-allowed" : "hover:border-[#16a34a] cursor-pointer"
                 }`}
               >
@@ -324,10 +322,10 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
                 />
 
                 {file ? (
-                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-white border border-[#E5E5E0] relative z-10 max-w-md mx-auto shadow-xs">
-                    <div className="flex items-center gap-2.5 text-[#0C0C0C] text-xs font-semibold truncate">
-                      <FileText className="w-5 h-5 text-[#16a34a] shrink-0" />
-                      <span className="truncate max-w-[220px]">{file.name}</span>
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-[#E5E5E0] relative z-10 max-w-sm mx-auto shadow-xs">
+                    <div className="flex items-center gap-2 text-[#0C0C0C] text-xs font-semibold truncate">
+                      <FileText className="w-4 h-4 text-[#16a34a] shrink-0" />
+                      <span className="truncate max-w-[180px]">{file.name}</span>
                       <span className="text-[10px] text-slate-500 font-normal shrink-0">
                         ({(file.size / (1024 * 1024)).toFixed(1)} MB)
                       </span>
@@ -341,19 +339,19 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
                       className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors"
                       title="Chọn file khác"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-2 select-none">
-                    <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center mx-auto mb-2">
-                      <Upload className="w-6 h-6" />
+                  <div className="space-y-1 select-none">
+                    <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center mx-auto mb-1">
+                      <Upload className="w-4 h-4" />
                     </div>
-                    <p className="text-xs sm:text-sm font-bold text-[#0C0C0C]">
+                    <p className="text-xs font-bold text-[#0C0C0C]">
                       Kéo thả file CV vào đây hoặc{" "}
                       <span className="text-amber-500 hover:underline">chọn từ thiết bị</span>
                     </p>
-                    <p className="text-[11px] text-slate-400">
+                    <p className="text-[10px] text-slate-400">
                       Hệ thống chỉ hỗ trợ định dạng PDF (.pdf), dung lượng tối đa 10MB
                     </p>
                   </div>
@@ -362,11 +360,11 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
             </div>
 
             {/* 5. NÚT SUBMIT */}
-            <div className="pt-2">
+            <div className="pt-1">
               <button
                 type="submit"
                 disabled={job.isClosed || loading}
-                className={`w-full py-3.5 px-6 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${
+                className={`w-full py-2.5 sm:py-3 px-4 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${
                   job.isClosed
                     ? "bg-[#8E95A5] text-white cursor-not-allowed opacity-90"
                     : "bg-[#16a34a] hover:bg-[#15803d] text-white cursor-pointer shadow-xs active:scale-[0.99]"
@@ -379,14 +377,14 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
                   </>
                 ) : (
                   <>
-                    <Send className="w-4 h-4" />
+                    <Send className="w-3.5 h-3.5" />
                     <span>Gửi Hồ Sơ Ứng Tuyển</span>
                   </>
                 )}
               </button>
 
               {job.isClosed && (
-                <p className="text-center text-[11px] text-rose-600 font-medium mt-2 select-none">
+                <p className="text-center text-[10px] sm:text-[11px] text-rose-600 font-medium mt-1.5 select-none">
                   * Đợt tuyển dụng này hiện đã đóng hoặc hết hạn tiếp nhận hồ sơ
                 </p>
               )}

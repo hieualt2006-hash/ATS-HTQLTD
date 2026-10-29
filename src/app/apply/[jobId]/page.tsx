@@ -51,7 +51,6 @@ export default async function ExternalApplyPage({
   const initialJobData = {
     id: job.id,
     title: job.title,
-    quantity: job.quantity || 1,
     salaryRange: job.salaryRange || null,
     deadline: job.deadline ? new Date(job.deadline).toISOString() : null,
     isClosed,
