@@ -101,6 +101,64 @@ export default function CandidatesPage() {
   // Modals
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateItem | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  // Mở modal và tự động tải chi tiết có đầy đủ cvFileUrl
+  const handleOpenCandidate = async (cand: CandidateItem) => {
+    setSelectedCandidate(cand);
+    setLoadingDetail(true);
+    try {
+      const res = await fetch(`/api/candidates/${cand.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.candidate) {
+          setSelectedCandidate(data.candidate);
+        }
+      }
+    } catch (e) {
+      console.error("Lỗi tải chi tiết hồ sơ ứng viên:", e);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  // Mở file CV PDF ở tab riêng
+  const handleOpenInNewTab = () => {
+    if (!selectedCandidate?.cvFileUrl) return;
+    try {
+      if (selectedCandidate.cvFileUrl.startsWith("data:")) {
+        const parts = selectedCandidate.cvFileUrl.split(",");
+        const byteCharacters = atob(parts[1]);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: "application/pdf" });
+        const fileURL = URL.createObjectURL(blob);
+        window.open(fileURL, "_blank");
+      } else {
+        window.open(selectedCandidate.cvFileUrl, "_blank");
+      }
+    } catch {
+      window.open(selectedCandidate.cvFileUrl, "_blank");
+    }
+  };
+
+  // Tải file CV PDF về máy
+  const handleDownloadPdf = () => {
+    if (!selectedCandidate?.cvFileUrl) return;
+    try {
+      const link = document.createElement("a");
+      link.href = selectedCandidate.cvFileUrl;
+      link.download = `CV_${selectedCandidate.fullName.replace(/\s+/g, "_")}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error("Lỗi tải CV:", e);
+    }
+  };
 
   // Upload Form State
   const [uploadJobId, setUploadJobId] = useState("");
@@ -584,7 +642,7 @@ export default function CandidatesPage() {
                               <span>Lên Lịch</span>
                             </Link>
                             <button
-                              onClick={() => setSelectedCandidate(cand)}
+                              onClick={() => handleOpenCandidate(cand)}
                               className="px-2.5 py-1.5 rounded-md bg-[#F2F1ED] hover:bg-slate-200 text-[#0C0C0C] border border-[#E5E5E0] text-xs font-medium flex items-center gap-1.5 transition-colors"
                             >
                               <Eye className="w-3.5 h-3.5" />
@@ -657,7 +715,7 @@ export default function CandidatesPage() {
                               <div
                                 key={cand.id}
                                 className="p-3 rounded-lg bg-[#F2F1ED] border border-[#E5E5E0] hover:border-slate-400 transition-colors space-y-1.5 cursor-pointer"
-                                onClick={() => setSelectedCandidate(cand)}
+                                onClick={() => handleOpenCandidate(cand)}
                               >
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="font-semibold text-xs text-[#0C0C0C]">
@@ -725,7 +783,7 @@ export default function CandidatesPage() {
                       .map((cand) => (
                         <div
                           key={cand.id}
-                          onClick={() => setSelectedCandidate(cand)}
+                          onClick={() => handleOpenCandidate(cand)}
                           className="p-3 rounded-lg bg-emerald-50/50 border border-emerald-200 hover:border-emerald-400 cursor-pointer transition-colors space-y-1"
                         >
                           <div className="font-semibold text-xs text-[#0C0C0C]">{cand.fullName}</div>
@@ -755,7 +813,7 @@ export default function CandidatesPage() {
                       .map((cand) => (
                         <div
                           key={cand.id}
-                          onClick={() => setSelectedCandidate(cand)}
+                          onClick={() => handleOpenCandidate(cand)}
                           className="p-3 rounded-lg bg-rose-50/50 border border-rose-200 hover:border-rose-400 cursor-pointer transition-colors space-y-1"
                         >
                           <div className="font-semibold text-xs text-[#0C0C0C]">{cand.fullName}</div>
@@ -828,8 +886,8 @@ export default function CandidatesPage() {
                         showNotification("Chỉ chấp nhận tệp định dạng PDF (.pdf). Vui lòng không chọn file ảnh hoặc định dạng khác.", true);
                         return;
                       }
-                      if (dropped.size > 15 * 1024 * 1024) {
-                        showNotification("Dung lượng tệp CV không được vượt quá 15MB.", true);
+                      if (dropped.size > 3 * 1024 * 1024) {
+                        showNotification("Dung lượng tệp CV không được vượt quá 3MB (chuẩn 1 trang A4).", true);
                         return;
                       }
                       setUploadFile(dropped);
@@ -850,8 +908,8 @@ export default function CandidatesPage() {
                           setUploadFile(null);
                           return;
                         }
-                        if (selected.size > 15 * 1024 * 1024) {
-                          showNotification("Dung lượng tệp CV không được vượt quá 15MB.", true);
+                        if (selected.size > 3 * 1024 * 1024) {
+                          showNotification("Dung lượng tệp CV không được vượt quá 3MB (chuẩn 1 trang A4).", true);
                           e.target.value = "";
                           setUploadFile(null);
                           return;
@@ -886,7 +944,7 @@ export default function CandidatesPage() {
                     <div className="space-y-1 text-slate-600 text-xs">
                       <Upload className="w-7 h-7 mx-auto text-[#16a34a] mb-1" />
                       <p className="font-semibold text-[#0C0C0C]">Bấm để chọn file PDF hoặc kéo thả vào đây</p>
-                      <p className="text-[10px] text-slate-400">Chỉ chấp nhận tệp định dạng .pdf • Dung lượng tối đa 15MB</p>
+                      <p className="text-[10px] text-slate-400">Chỉ chấp nhận tệp định dạng .pdf • Dung lượng tối đa 3MB (1 trang A4)</p>
                     </div>
                   )}
                 </div>
@@ -921,193 +979,300 @@ export default function CandidatesPage() {
         document.body
       )}
 
-      {/* ================= MODAL: CANDIDATE DETAIL ================= */}
+      {/* ================= MODAL: CANDIDATE DETAIL (2 CỘT: XEM CV A4 & ĐÁNH GIÁ AI) ================= */}
       {mounted && selectedCandidate && createPortal(
-        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-3xl bg-white border border-[#E5E5E0] rounded-2xl p-6 shadow-xl relative max-h-[90vh] overflow-y-auto space-y-5">
-            {/* Header */}
-            <div className="flex items-start justify-between pb-4 border-b border-[#E5E5E0] sticky top-0 bg-white z-10">
-              <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-full bg-[#F2F1ED] border border-[#E5E5E0] flex items-center justify-center font-bold text-base text-[#0C0C0C]">
+        <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5">
+          <div className="w-full max-w-6xl bg-white border border-[#E5E5E0] rounded-2xl shadow-2xl flex flex-col max-h-[94vh] overflow-hidden">
+            {/* Header chung */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E5E0] bg-white shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#F2F1ED] border border-[#E5E5E0] flex items-center justify-center font-bold text-sm text-[#0C0C0C]">
                   {selectedCandidate.fullName.charAt(0)}
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-[#0C0C0C]">{selectedCandidate.fullName}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-[#0C0C0C]">{selectedCandidate.fullName}</h3>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#F2F1ED] text-slate-600 border border-[#E5E5E0]">
+                      {selectedCandidate.source === "EXTERNAL_FORM" ? "Cổng Ứng Tuyển" : "HR Upload"}
+                    </span>
+                  </div>
                   <p className="text-xs text-slate-500">
-                    Ứng tuyển vị trí:{" "}
-                    <strong className="text-[#0C0C0C]">{selectedCandidate.jobPosting.title}</strong>
+                    Vị trí ứng tuyển: <strong className="text-[#0C0C0C]">{selectedCandidate.jobPosting.title}</strong>
                   </p>
                 </div>
               </div>
 
-              <button
-                onClick={() => setSelectedCandidate(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-black"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {selectedCandidate.cvFileUrl && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleDownloadPdf}
+                      className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F2F1ED] hover:bg-slate-200 text-[#0C0C0C] text-xs font-semibold border border-[#E5E5E0] transition-colors"
+                      title="Tải file PDF về máy"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Tải PDF</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenInNewTab}
+                      className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F2F1ED] hover:bg-slate-200 text-[#0C0C0C] text-xs font-semibold border border-[#E5E5E0] transition-colors"
+                      title="Mở tài liệu PDF ở tab mới"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Mở tab mới</span>
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => setSelectedCandidate(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-black hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            {/* Quick Contact & Status Bar */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-              <div className="p-3 rounded-lg bg-[#F2F1ED] border border-[#E5E5E0] flex items-center gap-2.5">
-                <Mail className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                <div className="truncate">
-                  <div className="text-[10px] text-slate-400 uppercase font-semibold">Email</div>
-                  <div className="font-mono text-[#0C0C0C] truncate">
-                    {selectedCandidate.email && !selectedCandidate.email.includes("ungvien.local")
-                      ? selectedCandidate.email
-                      : "Chưa có email trong CV"}
+            {/* Modal Body: 2 Cột */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 bg-[#FAFAF8]">
+              {/* CỘT TRÁI (Lg: 7 CỘT): XEM TRỰC TIẾP TÀI LIỆU CV KHỔ A4 */}
+              <div className="lg:col-span-7 flex flex-col bg-white border border-[#E5E5E0] rounded-xl p-4 shadow-xs">
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-[#E5E5E0]">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-[#16a34a]" />
+                    <span className="font-bold text-xs text-[#0C0C0C]">
+                      Tài Liệu CV Ứng Viên (Bản Đối Soát A4)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {selectedCandidate.cvFileUrl && (
+                      <span className="text-[10px] text-slate-500 font-mono bg-[#F2F1ED] px-2 py-0.5 rounded border border-[#E5E5E0]">
+                        Khổ A4 • Chuẩn PDF
+                      </span>
+                    )}
                   </div>
                 </div>
-              </div>
 
-              <div className="p-3 rounded-lg bg-[#F2F1ED] border border-[#E5E5E0] flex items-center gap-2.5">
-                <Phone className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                <div className="truncate">
-                  <div className="text-[10px] text-slate-400 uppercase font-semibold">Điện thoại</div>
-                  <div className="font-mono text-[#0C0C0C]">{selectedCandidate.phone || "Chưa có SĐT"}</div>
+                {/* Khung tài liệu A4 */}
+                <div className="flex-1 min-h-[520px] lg:min-h-[620px] rounded-lg border border-[#E5E5E0] bg-[#F2F1ED] overflow-hidden flex flex-col relative">
+                  {loadingDetail ? (
+                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-500 gap-3">
+                      <Loader2 className="w-8 h-8 animate-spin text-[#16a34a]" />
+                      <p className="text-xs font-medium">Đang tải bản xem trước CV A4...</p>
+                    </div>
+                  ) : selectedCandidate.cvFileUrl ? (
+                    <iframe
+                      src={selectedCandidate.cvFileUrl}
+                      className="w-full h-full min-h-[520px] lg:min-h-[620px] border-none bg-white"
+                      title={`Bản xem CV - ${selectedCandidate.fullName}`}
+                    />
+                  ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+                      <FileText className="w-12 h-12 text-slate-300 mb-2" />
+                      <h4 className="text-xs font-bold text-[#0C0C0C]">Không có tệp PDF lưu trữ</h4>
+                      <p className="text-[11px] text-slate-400 mt-1 max-w-sm">
+                        Hồ sơ này chưa có file PDF đính kèm hoặc được tạo thủ công. Bạn có thể xem văn bản bóc tách bên dưới.
+                      </p>
+                      {selectedCandidate.rawCvText && (
+                        <div className="mt-4 w-full max-h-72 overflow-y-auto text-left p-3 rounded-lg bg-white border border-[#E5E5E0] text-[11px] font-mono text-slate-700 whitespace-pre-wrap">
+                          {selectedCandidate.rawCvText}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              <div className="p-3 rounded-lg bg-[#F2F1ED] border border-[#E5E5E0] flex items-center gap-2.5">
-                <Calendar className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                <div className="truncate">
-                  <div className="text-[10px] text-slate-400 uppercase font-semibold">Ngày nhận đơn</div>
-                  <div className="text-[#0C0C0C]">{formatDate(selectedCandidate.appliedAt)}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* AI Evaluation Box */}
-            <div className="p-4 rounded-xl bg-[#F2F1ED] border border-[#E5E5E0] space-y-3">
-              <div className="flex items-center justify-between pb-2 border-b border-[#E5E5E0]">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#16a34a]" />
-                  <span className="font-bold text-xs text-[#0C0C0C]">Đánh Giá Độ Khớp Hồ Sơ</span>
-                </div>
-                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-white text-[#16a34a] border border-[#E5E5E0] font-mono">
-                  Độ Khớp: {selectedCandidate.aiMatchScore || 0}%
-                </span>
-              </div>
-
-              {/* Progress bar */}
-              <div>
-                <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
-                  <span>Mức độ đáp ứng tiêu chuẩn tuyển dụng</span>
-                  <span className="font-bold text-[#0C0C0C] font-mono">{selectedCandidate.aiMatchScore || 0}/100</span>
-                </div>
-                <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-[#16a34a]"
-                    style={{ width: `${selectedCandidate.aiMatchScore || 0}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Summary Text */}
-              <div className="p-3 rounded-lg bg-white border border-[#E5E5E0] text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">
-                {selectedCandidate.aiEvaluationSummary || "Chưa có nhận xét đánh giá."}
-              </div>
-            </div>
-
-            {/* Extracted Skills */}
-            <div>
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-2">
-                <Award className="w-4 h-4 text-[#16a34a]" />
-                Các Kỹ Năng Chuyên Môn Bóc Tách Được
-              </h4>
-              <div className="flex flex-wrap gap-1.5">
-                {parseSkills(selectedCandidate.extractedSkills).length > 0 ? (
-                  parseSkills(selectedCandidate.extractedSkills).map((skill, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2.5 py-1 rounded-md bg-[#F2F1ED] border border-[#E5E5E0] text-xs text-[#0C0C0C] font-medium"
+                {/* Thanh công cụ phụ mobile nếu màn hình nhỏ */}
+                {selectedCandidate.cvFileUrl && (
+                  <div className="sm:hidden pt-3 mt-3 border-t border-[#E5E5E0] flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={handleOpenInNewTab}
+                      className="flex-1 py-1.5 px-3 rounded-lg bg-[#F2F1ED] hover:bg-slate-200 text-[#0C0C0C] text-xs font-medium border border-[#E5E5E0] flex items-center justify-center gap-1.5"
                     >
-                      {skill}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-slate-400 italic">Chưa bóc tách được kỹ năng chuyên môn từ tài liệu</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Mở tab mới</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadPdf}
+                      className="flex-1 py-1.5 px-3 rounded-lg bg-[#F2F1ED] hover:bg-slate-200 text-[#0C0C0C] text-xs font-medium border border-[#E5E5E0] flex items-center justify-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Tải PDF</span>
+                    </button>
+                  </div>
                 )}
               </div>
-            </div>
 
-            {/* Stage & Status Controls */}
-            <div className="p-4 rounded-xl bg-[#F2F1ED] border border-[#E5E5E0] grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Chuyển Giai Đoạn Tuyển Dụng
-                </label>
-                <select
-                  value={selectedCandidate.currentStageId || ""}
-                  onChange={(e) => handleMoveStage(selectedCandidate.id, e.target.value || null)}
-                  className="w-full px-3 py-2 bg-white border border-[#E5E5E0] rounded-lg text-[#0C0C0C] text-xs focus:outline-none focus:border-[#16a34a]"
-                >
-                  <option value="">-- Chưa gán giai đoạn --</option>
-                  {kanbanStages.map((st) => (
-                    <option key={st.id} value={st.id}>
-                      Vòng {st.orderIndex}: {st.stageName}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* CỘT PHẢI (Lg: 5 CỘT): KẾT QUẢ AI & QUẢN LÝ TIẾN ĐỘ */}
+              <div className="lg:col-span-5 flex flex-col space-y-4">
+                {/* Thông tin liên hệ nhanh */}
+                <div className="bg-white border border-[#E5E5E0] rounded-xl p-3.5 space-y-2.5 text-xs shadow-xs">
+                  <div className="flex items-center gap-2 pb-2 border-b border-[#E5E5E0]">
+                    <Users className="w-4 h-4 text-slate-500" />
+                    <span className="font-bold text-[#0C0C0C]">Thông Tin Liên Hệ</span>
+                  </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Cập Nhật Kết Quả Hồ Sơ
-                </label>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleUpdateStatus(selectedCandidate.id, "HIRED")}
-                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-colors ${
-                      selectedCandidate.status === "HIRED"
-                        ? "bg-[#16a34a] text-white"
-                        : "bg-white hover:bg-emerald-50 text-slate-700 border border-[#E5E5E0]"
-                    }`}
-                  >
-                    Trúng Tuyển
-                  </button>
-                  <button
-                    onClick={() => handleUpdateStatus(selectedCandidate.id, "REJECTED")}
-                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-colors ${
-                      selectedCandidate.status === "REJECTED"
-                        ? "bg-rose-600 text-white"
-                        : "bg-white hover:bg-rose-50 text-slate-700 border border-[#E5E5E0]"
-                    }`}
-                  >
-                    Loại Hồ Sơ
-                  </button>
-                  <button
-                    onClick={() => handleUpdateStatus(selectedCandidate.id, "IN_PROGRESS")}
-                    className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-colors ${
-                      selectedCandidate.status === "IN_PROGRESS"
-                        ? "bg-[#16a34a] text-white"
-                        : "bg-white hover:bg-slate-100 text-slate-700 border border-[#E5E5E0]"
-                    }`}
-                  >
-                    Đang Xử Lý
-                  </button>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="font-mono text-[#0C0C0C] truncate">
+                        {selectedCandidate.email && !selectedCandidate.email.includes("ungvien.local")
+                          ? selectedCandidate.email
+                          : "Chưa có email trong CV"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="font-mono text-[#0C0C0C]">{selectedCandidate.phone || "Chưa có SĐT"}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span className="text-slate-600">Nộp hồ sơ: {formatDate(selectedCandidate.appliedAt)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hộp Đánh Giá AI */}
+                <div className="bg-white border border-[#E5E5E0] rounded-xl p-4 space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between pb-2 border-b border-[#E5E5E0]">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-[#16a34a]" />
+                      <span className="font-bold text-xs text-[#0C0C0C]">Đánh Giá Độ Khớp AI</span>
+                    </div>
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-[#F2F1ED] text-[#16a34a] border border-[#E5E5E0] font-mono">
+                      {selectedCandidate.aiMatchScore || 0}%
+                    </span>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-600 mb-1">
+                      <span>Mức độ đáp ứng tiêu chuẩn</span>
+                      <span className="font-bold text-[#0C0C0C] font-mono">{selectedCandidate.aiMatchScore || 0}/100</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden border border-[#E5E5E0]">
+                      <div
+                        className="h-full rounded-full bg-[#16a34a] transition-all"
+                        style={{ width: `${selectedCandidate.aiMatchScore || 0}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Tóm tắt nhận xét */}
+                  <div>
+                    <div className="text-[10px] text-slate-400 uppercase font-semibold mb-1">Nhận xét chi tiết:</div>
+                    <div className="p-3 rounded-lg bg-[#FAFAF8] border border-[#E5E5E0] text-xs text-slate-700 leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap">
+                      {selectedCandidate.aiEvaluationSummary || "Chưa có nhận xét đánh giá."}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Kỹ năng chuyên môn bóc tách */}
+                <div className="bg-white border border-[#E5E5E0] rounded-xl p-4 shadow-xs space-y-2">
+                  <div className="flex items-center gap-2 pb-2 border-b border-[#E5E5E0]">
+                    <Award className="w-4 h-4 text-[#16a34a]" />
+                    <span className="text-xs font-bold text-[#0C0C0C] uppercase tracking-wider">
+                      Kỹ Năng Chuyên Môn Bóc Tách
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {parseSkills(selectedCandidate.extractedSkills).length > 0 ? (
+                      parseSkills(selectedCandidate.extractedSkills).map((skill, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-0.5 rounded-md bg-[#F2F1ED] border border-[#E5E5E0] text-[11px] text-[#0C0C0C] font-medium"
+                        >
+                          {skill}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[11px] text-slate-400 italic">Chưa bóc tách được kỹ năng từ tài liệu</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Chuyển Giai Đoạn Tuyển Dụng & Trạng Thái */}
+                <div className="bg-white border border-[#E5E5E0] rounded-xl p-4 space-y-3.5 shadow-xs">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Chuyển Giai Đoạn Tuyển Dụng
+                    </label>
+                    <select
+                      value={selectedCandidate.currentStageId || ""}
+                      onChange={(e) => handleMoveStage(selectedCandidate.id, e.target.value || null)}
+                      className="w-full px-3 py-2 bg-white border border-[#E5E5E0] rounded-lg text-[#0C0C0C] text-xs focus:outline-none focus:border-[#16a34a]"
+                    >
+                      <option value="">-- Chưa gán giai đoạn --</option>
+                      {kanbanStages.map((st) => (
+                        <option key={st.id} value={st.id}>
+                          Vòng {st.orderIndex}: {st.stageName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Cập Nhật Kết Quả Hồ Sơ
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => handleUpdateStatus(selectedCandidate.id, "HIRED")}
+                        className={`py-2 px-2.5 rounded-lg text-xs font-semibold transition-colors ${
+                          selectedCandidate.status === "HIRED"
+                            ? "bg-[#16a34a] text-white"
+                            : "bg-[#FAFAF8] hover:bg-emerald-50 text-slate-700 border border-[#E5E5E0]"
+                        }`}
+                      >
+                        Trúng Tuyển
+                      </button>
+                      <button
+                        onClick={() => handleUpdateStatus(selectedCandidate.id, "REJECTED")}
+                        className={`py-2 px-2.5 rounded-lg text-xs font-semibold transition-colors ${
+                          selectedCandidate.status === "REJECTED"
+                            ? "bg-rose-600 text-white"
+                            : "bg-[#FAFAF8] hover:bg-rose-50 text-slate-700 border border-[#E5E5E0]"
+                        }`}
+                      >
+                        Loại Hồ Sơ
+                      </button>
+                      <button
+                        onClick={() => handleUpdateStatus(selectedCandidate.id, "IN_PROGRESS")}
+                        className={`py-2 px-2.5 rounded-lg text-xs font-semibold transition-colors ${
+                          selectedCandidate.status === "IN_PROGRESS"
+                            ? "bg-[#16a34a] text-white"
+                            : "bg-[#FAFAF8] hover:bg-slate-100 text-slate-700 border border-[#E5E5E0]"
+                        }`}
+                      >
+                        Đang Xử Lý
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Bottom Actions */}
-            <div className="pt-3 border-t border-[#E5E5E0] flex items-center justify-between">
+            <div className="px-6 py-3.5 border-t border-[#E5E5E0] bg-white flex items-center justify-between shrink-0">
               <button
                 onClick={() => handleDeleteCandidate(selectedCandidate.id, selectedCandidate.fullName)}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 flex items-center gap-1.5 transition-colors"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
                 <span>Xóa Hồ Sơ</span>
               </button>
 
               <div className="flex items-center gap-2">
                 <Link
                   href="/interviews"
-                  className="px-3.5 py-1.5 rounded-lg bg-[#2ea043] hover:bg-[#278637] text-white text-xs font-bold flex items-center gap-1.5 transition-colors"
+                  className="px-3.5 py-1.5 rounded-lg bg-[#2ea043] hover:bg-[#278637] text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
                 >
-                  <Calendar className="w-4 h-4" />
+                  <Calendar className="w-3.5 h-3.5" />
                   <span>Lên Lịch Phỏng Vấn</span>
                 </Link>
 

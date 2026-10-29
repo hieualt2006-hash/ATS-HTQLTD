@@ -166,6 +166,12 @@ export async function POST(req: Request) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    if (buffer.length > 3 * 1024 * 1024) {
+      return NextResponse.json({
+        error: "Dung lượng tệp CV vượt quá giới hạn 3MB (chuẩn 1 trang A4). Vui lòng chọn tệp nhỏ hơn."
+      }, { status: 400 });
+    }
+
     if (buffer.length < 10) {
       return NextResponse.json({ error: "Tệp PDF tải lên bị rỗng." }, { status: 400 });
     }

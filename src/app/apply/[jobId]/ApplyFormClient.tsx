@@ -79,8 +79,8 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
         setFile(null);
         return;
       }
-      if (selected.size > 10 * 1024 * 1024) {
-        setErrorMessage("Dung lượng file không được vượt quá 10MB.");
+      if (selected.size > 3 * 1024 * 1024) {
+        setErrorMessage("Dung lượng file vượt quá giới hạn 3MB (chuẩn 1 trang A4). Vui lòng nén hoặc chọn tệp nhỏ hơn.");
         e.target.value = "";
         setFile(null);
         return;
@@ -279,10 +279,10 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
               </div>
             </div>
 
-            {/* 4. HỒ SƠ CV (ĐỊNH DẠNG PDF, TỐI ĐA 10MB) * - Thiết kế gọn gàng */}
+            {/* 4. HỒ SƠ CV (ĐỊNH DẠNG PDF, TỐI ĐA 3MB) * - Thiết kế gọn gàng */}
             <div>
               <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-1">
-                HỒ SƠ CV (ĐỊNH DẠNG PDF, TỐI ĐA 10MB) <span className="text-rose-500">*</span>
+                HỒ SƠ CV (ĐỊNH DẠNG PDF, TỐI ĐA 3MB) <span className="text-rose-500">*</span>
               </label>
 
               <div
@@ -300,8 +300,8 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
                       setErrorMessage("Chỉ chấp nhận tệp định dạng PDF (.pdf). Vui lòng không chọn file ảnh hoặc định dạng khác.");
                       return;
                     }
-                    if (dropped.size > 10 * 1024 * 1024) {
-                      setErrorMessage("Dung lượng file không được vượt quá 10MB.");
+                    if (dropped.size > 3 * 1024 * 1024) {
+                      setErrorMessage("Dung lượng file vượt quá giới hạn 3MB (chuẩn 1 trang A4). Vui lòng nén hoặc chọn tệp nhỏ hơn.");
                       return;
                     }
                     setFile(dropped);
@@ -352,7 +352,7 @@ export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
                       <span className="text-amber-500 hover:underline">chọn từ thiết bị</span>
                     </p>
                     <p className="text-[10px] text-slate-400">
-                      Hệ thống chỉ hỗ trợ định dạng PDF (.pdf), dung lượng tối đa 10MB
+                      Hệ thống chỉ hỗ trợ định dạng PDF (.pdf), dung lượng tối đa 3MB (1 trang A4)
                     </p>
                   </div>
                 )}
