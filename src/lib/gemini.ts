@@ -95,7 +95,7 @@ export async function parseAndEvaluateCV({
       const base64Data = buffer.toString("base64");
 
       const prompt = `Bạn là Chuyên gia Tuyển dụng Nhân sự Cao cấp (Senior Talent Acquisition & ATS Evaluator).
-Nhiệm vụ của bạn là đọc và phân tích file CV (Hồ sơ ứng viên) đính kèm, sau đó đối soát chi tiết với Yêu cầu tuyển dụng (JD) dưới đây:
+Nhiệm vụ của bạn là đọc và phân tích kỹ lưỡng file CV (Hồ sơ ứng viên) đính kèm (hỗ trợ đọc cả file văn bản lẫn file scan ảnh chụp tài liệu), sau đó đối chiếu khách quan với Yêu cầu tuyển dụng (JD) dưới đây:
 
 TIÊU ĐỀ ĐỢT TUYỂN DỤNG: ${jobPosting.title}
 MÔ TẢ CÔNG VIỆC:
@@ -107,32 +107,33 @@ ${jobPosting.requirements || "Theo chuẩn yêu cầu chuyên môn của vị tr
 QUYỀN LỢI & PHÚC LỢI:
 ${jobPosting.benefits || "Theo quy chế đãi ngộ của công ty."}
 
-YÊU CẦU ĐẶC BIỆT QUAN TRỌNG:
-1. CHỈ trích xuất những thông tin CÓ THẬT trong CV.
-   - TUYỆT ĐỐI KHÔNG BỊA ĐẶT số điện thoại hoặc email nếu trong CV không có.
-   - Nếu không tìm thấy số điện thoại trong CV, hãy trả về chuỗi rỗng "".
-   - Nếu không tìm thấy email trong CV, hãy trả về chuỗi rỗng "".
-   - Họ và tên: Trích xuất tên ứng viên trong CV. Nếu không rõ, lấy tên tệp đã làm sạch.
-2. Liệt kê các kỹ năng chuyên môn CÓ THỰC trong CV (extractedSkills).
-3. Đọc và trích xuất toàn bộ nội dung văn bản chữ của CV (rawCvText).
-4. Chấm điểm độ khớp (aiMatchScore) theo thang điểm số nguyên từ 0 đến 100:
-   - Nếu tệp không chứa nội dung CV xin việc hợp lệ: Chấm điểm 0.
-   - Nếu ứng viên không có kỹ năng nào phù hợp với JD: Chấm điểm dưới 30.
-   - Nếu đáp ứng tốt các yêu cầu cốt lõi: Chấm 70 - 95.
-5. Viết nhận xét trung thực, khách quan bằng tiếng Việt (aiEvaluationSummary):
-   - Nêu rõ các kỹ năng thực tế ứng viên có.
-   - Nêu rõ các kỹ năng còn thiếu so với JD.
-   - Đề xuất cho HR.
+NGUYÊN TẮC PHÂN TÍCH VÀ ĐÁNH GIÁ:
+1. Đọc trung thực thông tin trong CV:
+   - Họ và tên ứng viên: Lấy chính xác tên ứng viên trong CV.
+   - Email & Số điện thoại: Lấy chính xác nếu có trong CV, nếu không có để chuỗi rỗng "".
+   - Kỹ năng chuyên môn (extractedSkills): Trích xuất danh sách các kỹ năng thực tế mà ứng viên đề cập trong CV (cả tiếng Anh lẫn tiếng Việt).
+   - Nội dung chữ (rawCvText): Bóc tách toàn bộ văn bản và kinh nghiệm từ CV.
+2. Chấm điểm độ khớp (aiMatchScore) từ 0 đến 100:
+   - Khớp xuất sắc (đáp ứng hầu hết yêu cầu kỹ thuật cốt lõi và kinh nghiệm): 80 - 95.
+   - Khớp khá (đáp ứng một số yêu cầu cốt lõi, thiếu kỹ năng phụ): 60 - 79.
+   - Đạt một phần (trái ngành nhẹ hoặc chỉ đáp ứng kỹ năng chung): 30 - 59.
+   - Không phù hợp / Trái ngành hoàn toàn (ví dụ: CV ngành Thiết kế nội thất nộp vị trí Lập trình viên, hoặc CV ngành Kế toán nộp vị trí Bán hàng kỹ thuật): Chấm 5 - 20 điểm.
+   - File rỗng hoặc không phải hồ sơ xin việc: 0 điểm.
+3. Viết nhận xét (aiEvaluationSummary) theo phong cách nhân sự chuyên nghiệp, nhã nhặn, tự nhiên, dễ hiểu:
+   - Nêu rõ nền tảng, chức danh và kinh nghiệm nổi bật của ứng viên trong CV.
+   - Phân tích đối chiếu: Chỉ rõ điểm phù hợp hoặc lý do tại sao không phù hợp với vị trí "${jobPosting.title}" (nêu rõ các kỹ năng còn thiếu hoặc sự khác biệt về chuyên ngành).
+   - Khuyến nghị cụ thể cho HR (ví dụ: Chuyển sang vòng phỏng vấn, thẩm định thêm về kỹ năng X, hoặc từ chối do trái chuyên môn).
+   - TUYỆT ĐỐI KHÔNG dùng từ ngữ máy móc kỹ thuật khó hiểu như "chưa qua OCR", "text-based PDF", "lớp văn bản".
 
 Trả về DUY NHẤT một chuỗi JSON hợp lệ:
 {
-  "fullName": "Họ và tên ứng viên",
+  "fullName": "Tên ứng viên",
   "email": "email tìm thấy hoặc chuỗi rỗng",
   "phone": "số điện thoại tìm thấy hoặc chuỗi rỗng",
   "extractedSkills": ["kỹ năng 1", "kỹ năng 2"],
   "aiMatchScore": 75,
-  "aiEvaluationSummary": "...",
-  "rawCvText": "..."
+  "aiEvaluationSummary": "Lời nhận xét đánh giá rõ ràng, dễ hiểu...",
+  "rawCvText": "Nội dung tóm tắt kinh nghiệm từ CV..."
 }`;
 
       const contents = [
@@ -160,20 +161,20 @@ Trả về DUY NHẤT một chuỗi JSON hợp lệ:
       let response;
       try {
         response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: "gemini-3.8-flash",
           contents,
           config,
         });
       } catch (e1: any) {
         try {
           response = await ai.models.generateContent({
-            model: "gemini-2.0-flash",
+            model: "gemini-2.5-flash",
             contents,
             config,
           });
         } catch (e2: any) {
           response = await ai.models.generateContent({
-            model: "gemini-1.5-flash",
+            model: "gemini-2.0-flash",
             contents,
             config,
           });
@@ -295,7 +296,7 @@ function performHonestTextEvaluation(
   const jdContext = `${jobPosting.title} ${jobPosting.description} ${jobPosting.requirements || ""}`.toLowerCase();
   
   if (rawText.length < 30) {
-    // Tệp PDF rỗng hoặc toàn hình ảnh không đọc được text
+    // Tệp PDF rỗng hoặc dạng scan ảnh đồ họa
     matchScore = 0;
     return {
       fullName,
@@ -303,10 +304,10 @@ function performHonestTextEvaluation(
       phone,
       extractedSkills: [],
       aiMatchScore: 0,
-      aiEvaluationSummary: `[Đánh giá tự động]:
-- Cảnh báo: Tệp PDF không chứa nội dung văn bản bóc tách được (tệp trống hoặc bản chụp scan hình ảnh chưa qua OCR).
-- Đề xuất: Yêu cầu ứng viên cung cấp tệp PDF bản chuẩn có lớp văn bản (text-based PDF) để hệ thống có thể đọc và chấm điểm.`,
-      rawCvText: `Tệp ${filename} không chứa lớp văn bản bóc tách được.`,
+      aiEvaluationSummary: `[Đánh giá sơ bộ]:
+- Hồ sơ được tải lên dưới dạng hình ảnh đồ họa hoặc bản chụp scan chưa qua xử lý văn bản tự động, hệ thống chưa nhận diện được các từ khóa chuyên môn trực tiếp.
+- Khuyến nghị: Nhà tuyển dụng vui lòng đối chiếu trực tiếp qua bản xem tài liệu A4 ở cột bên trái để thẩm định thông tin ứng viên.`,
+      rawCvText: `Tệp ${filename} là tài liệu đồ họa/ảnh scan.`,
     };
   }
 
