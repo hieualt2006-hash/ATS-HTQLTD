@@ -25,12 +25,17 @@ const DEFAULT_WELCOME_MSG =
 export default function ChatBotWidget() {
   const pathname = usePathname();
 
-  // 1. Kiểm tra loại trừ: Ẩn chat bot ở mọi trang đăng nhập / đăng ký
-  const isAuthPage =
+  // 1. Kiểm tra loại trừ: Ẩn hoàn toàn chatbot ở các trang đăng nhập/đăng ký VÀ TẤT CẢ các dạng web portal ứng viên (/careers, /apply)
+  const isExcludedPage =
+    !pathname ||
     pathname === "/login" ||
     pathname === "/register" ||
     pathname.startsWith("/login/") ||
-    pathname.startsWith("/register/");
+    pathname.startsWith("/register/") ||
+    pathname === "/careers" ||
+    pathname.startsWith("/careers/") ||
+    pathname === "/apply" ||
+    pathname.startsWith("/apply/");
 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -57,7 +62,7 @@ export default function ChatBotWidget() {
 
   // Khởi tạo lấy thông tin chào mừng và câu hỏi gợi ý khi người dùng mở ChatBot (Lazy load tối ưu tốc độ)
   useEffect(() => {
-    if (isAuthPage || !isOpen || hasInitialized) return;
+    if (isExcludedPage || !isOpen || hasInitialized) return;
 
     let isMounted = true;
     async function initChatbot() {
@@ -96,10 +101,10 @@ export default function ChatBotWidget() {
     return () => {
       isMounted = false;
     };
-  }, [isOpen, isAuthPage, hasInitialized, messages.length]);
+  }, [isOpen, isExcludedPage, hasInitialized, messages.length]);
 
-  // Nếu đang ở trang đăng nhập / đăng ký -> Ẩn hoàn toàn
-  if (isAuthPage) {
+  // Nếu đang ở trang đăng nhập / đăng ký hoặc các trang web portal -> Ẩn hoàn toàn
+  if (isExcludedPage) {
     return null;
   }
 
