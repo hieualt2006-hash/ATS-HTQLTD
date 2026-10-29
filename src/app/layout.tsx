@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
 import "./globals.css";
-import ChatBotWidget from "@/components/chatbot/ChatBotWidget";
 
 const beVietnamPro = Be_Vietnam_Pro({
   weight: ["300", "400", "500", "600", "700", "800", "900"],
@@ -24,7 +23,6 @@ export default function RootLayout({
     <html lang="vi" className={beVietnamPro.variable}>
       <body className="bg-[#F2F1ED] text-[#0C0C0C] antialiased selection:bg-[#16a34a] selection:text-white font-sans">
         {children}
-        <ChatBotWidget />
       </body>
     </html>
   );

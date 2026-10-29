@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentSession } from "@/lib/auth";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
+import ChatBotWidget from "@/components/chatbot/ChatBotWidget";
 import { isRealDatabaseConfigured } from "@/lib/db-status";
 import { mockStore } from "@/lib/mock-store";
 import { prisma } from "@/lib/prisma";
@@ -29,6 +30,9 @@ export default async function WorkspaceLayout({
           {children}
         </main>
       </div>
+
+      {/* Trợ lý AI ChatBot chỉ phục vụ không gian làm việc nội bộ */}
+      <ChatBotWidget />
     </div>
   );
 }
