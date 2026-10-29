@@ -1,31 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
+  Briefcase,
   Upload,
-  User,
-  Mail,
-  Phone,
-  FileText,
+  Send,
   Loader2,
   CheckCircle2,
   AlertCircle,
-  Send,
-  ShieldCheck,
+  FileText,
   X,
+  Lock,
 } from "lucide-react";
 
 interface ApplyFormClientProps {
-  jobId: string;
-  jobTitle: string;
-  companyName: string;
+  initialJob: {
+    id: string;
+    title: string;
+    quantity: number;
+    salaryRange?: string | null;
+    deadline?: string | null;
+    isClosed?: boolean;
+    department?: { id: string; name: string } | null;
+    company: { id: string; name: string; slug: string };
+  };
 }
 
-export default function ApplyFormClient({
-  jobId,
-  jobTitle,
-  companyName,
-}: ApplyFormClientProps) {
+export default function ApplyFormClient({ initialJob }: ApplyFormClientProps) {
+  const [job, setJob] = useState(initialJob);
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -38,6 +40,32 @@ export default function ApplyFormClient({
   const [isSuccess, setIsSuccess] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
+  // Đồng bộ thời gian thực tên và số lượng job từ database / mockStore
+  const fetchLatestJob = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/external/jobs?jobId=${encodeURIComponent(job.id)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.job) {
+          setJob(data.job);
+        }
+      }
+    } catch {
+      // Bỏ qua lỗi ngầm
+    }
+  }, [job.id]);
+
+  useEffect(() => {
+    const interval = setInterval(fetchLatestJob, 10000);
+    const handleFocus = () => fetchLatestJob();
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [fetchLatestJob]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selected = e.target.files[0];
@@ -47,8 +75,8 @@ export default function ApplyFormClient({
         setFile(null);
         return;
       }
-      if (selected.size > 15 * 1024 * 1024) {
-        setErrorMessage("Dung lượng file không được vượt quá 15MB.");
+      if (selected.size > 10 * 1024 * 1024) {
+        setErrorMessage("Dung lượng file không được vượt quá 10MB.");
         e.target.value = "";
         setFile(null);
         return;
@@ -62,6 +90,11 @@ export default function ApplyFormClient({
     e.preventDefault();
     setErrorMessage("");
 
+    if (job.isClosed) {
+      setErrorMessage("Đợt tuyển dụng này hiện đã đóng hoặc hết hạn nhận hồ sơ.");
+      return;
+    }
+
     if (!file) {
       setErrorMessage("Vui lòng đính kèm tệp CV PDF của bạn.");
       return;
@@ -71,10 +104,10 @@ export default function ApplyFormClient({
 
     try {
       const data = new FormData();
-      data.append("jobPostingId", jobId);
-      data.append("fullName", formData.fullName);
-      data.append("email", formData.email);
-      data.append("phone", formData.phone);
+      data.append("jobPostingId", job.id);
+      data.append("fullName", formData.fullName.trim());
+      data.append("email", formData.email.trim());
+      data.append("phone", formData.phone.trim());
       data.append("file", file);
 
       const res = await fetch("/api/external/apply", {
@@ -97,200 +130,269 @@ export default function ApplyFormClient({
     }
   };
 
-  if (isSuccess) {
-    return (
-      <div className="p-8 rounded-xl bg-white border border-[#E5E5E0] text-center space-y-4">
-        <div className="w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto text-[#16a34a]">
-          <CheckCircle2 className="w-8 h-8" />
-        </div>
-        <div>
-          <h3 className="text-xl font-bold text-[#0C0C0C] mb-2">Ứng Tuyển Thành Công!</h3>
-          <p className="text-xs text-slate-600 leading-relaxed max-w-sm mx-auto">
-            {successMsg}
-          </p>
-        </div>
-        <div className="p-4 rounded-lg bg-[#F2F1ED] border border-[#E5E5E0] text-xs text-slate-600 space-y-1">
-          <p>
-            Vị trí: <strong className="text-[#0C0C0C]">{jobTitle}</strong>
-          </p>
-          <p>
-            Đơn vị tuyển dụng: <strong className="text-[#16a34a]">{companyName}</strong>
-          </p>
-        </div>
-        <p className="text-[11px] text-slate-500">
-          Bộ phận Nhân sự sẽ thẩm định hồ sơ và liên hệ với bạn trong thời gian sớm nhất qua Email / Số điện thoại đã đăng ký.
-        </p>
-      </div>
-    );
-  }
+  const handleResetForm = () => {
+    setIsSuccess(false);
+    setFormData({ fullName: "", email: "", phone: "" });
+    setFile(null);
+    setErrorMessage("");
+  };
 
   return (
-    <div className="p-6 rounded-xl bg-white border border-[#E5E5E0] space-y-5">
-      <div>
-        <h3 className="text-base font-bold text-[#0C0C0C] flex items-center gap-2">
-          <span>Nộp Đơn Ứng Tuyển</span>
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-            Nhanh Gọn
-          </span>
-        </h3>
-        <p className="text-xs text-slate-500 mt-1">
-          Điền thông tin và đính kèm CV để gửi trực tiếp tới Ban Nhân Sự
-        </p>
-      </div>
+    <div className="min-h-screen bg-[#F2F1ED] text-[#0C0C0C] flex items-center justify-center p-4 sm:p-6 md:p-8 font-sans selection:bg-[#16a34a] selection:text-white">
+      {/* Khung ô Form to ở chính giữa màn hình */}
+      <div className="w-full max-w-3xl bg-white rounded-3xl border border-[#E5E5E0] shadow-sm p-6 sm:p-10 md:p-12 transition-all">
+        {isSuccess ? (
+          <div className="text-center py-6 space-y-5">
+            <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto text-[#16a34a]">
+              <CheckCircle2 className="w-10 h-10" />
+            </div>
 
-      {errorMessage && (
-        <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">
-          <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
-          <span>{errorMessage}</span>
-        </div>
-      )}
+            <div>
+              <h2 className="text-2xl font-bold text-[#0C0C0C] mb-2">Ứng Tuyển Thành Công!</h2>
+              <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                {successMsg}
+              </p>
+            </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Full name */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-            Họ và Tên của bạn <span className="text-rose-500">*</span>
-          </label>
-          <div className="relative">
-            <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              required
-              placeholder="Ví dụ: Nguyễn Văn An"
-              value={formData.fullName}
-              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-              className="w-full pl-10 pr-4 py-2 bg-white border border-[#E5E5E0] rounded-lg text-[#0C0C0C] text-xs focus:outline-none focus:border-[#16a34a]"
-            />
+            <div className="p-4 rounded-2xl bg-[#F2F1ED] border border-[#E5E5E0] text-xs text-slate-700 max-w-md mx-auto text-left space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Doanh nghiệp:</span>
+                <span className="font-bold text-[#0C0C0C]">{job.company.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Vị trí ứng tuyển:</span>
+                <span className="font-bold text-[#16a34a]">{job.title}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Ứng viên:</span>
+                <span className="font-semibold text-slate-800">{formData.fullName}</span>
+              </div>
+            </div>
+
+            <div className="pt-3">
+              <button
+                type="button"
+                onClick={handleResetForm}
+                className="px-6 py-2.5 rounded-xl bg-[#16a34a] hover:bg-[#15803d] text-white text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Gửi lại hồ sơ khác
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Lỗi cảnh báo nếu có */}
+            {errorMessage && (
+              <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
 
-        {/* Email */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-            Email liên hệ <span className="text-rose-500">*</span>
-          </label>
-          <div className="relative">
-            <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="email"
-              required
-              placeholder="an.nguyen@gmail.com"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full pl-10 pr-4 py-2 bg-white border border-[#E5E5E0] rounded-lg text-[#0C0C0C] text-xs focus:outline-none focus:border-[#16a34a]"
-            />
-          </div>
-        </div>
+            {/* 1. VỊ TRÍ TUYỂN DỤNG * (Ghi sẵn tên job đó luôn) */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#0C0C0C] tracking-wide">
+                  <Briefcase className="w-4 h-4 text-[#0C0C0C]" />
+                  <span>VỊ TRÍ TUYỂN DỤNG</span>
+                  <span className="text-rose-500">*</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {job.isClosed ? (
+                    <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                      Đã hết hạn
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-500 font-medium">
+                      Đang tuyển: <strong className="text-slate-800">{job.quantity}</strong> người
+                    </span>
+                  )}
+                </div>
+              </div>
 
-        {/* Phone */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-            Số điện thoại
-          </label>
-          <div className="relative">
-            <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="tel"
-              placeholder="0912 345 678"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full pl-10 pr-4 py-2 bg-white border border-[#E5E5E0] rounded-lg text-[#0C0C0C] text-xs focus:outline-none focus:border-[#16a34a]"
-            />
-          </div>
-        </div>
-
-        {/* File Upload Box */}
-        <div>
-          <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-            Đính Kèm File CV PDF <span className="text-rose-500">*</span>
-          </label>
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                const dropped = e.dataTransfer.files[0];
-                if (!dropped.name.toLowerCase().endsWith(".pdf") && dropped.type !== "application/pdf") {
-                  setErrorMessage("Chỉ chấp nhận tệp định dạng PDF (.pdf). Vui lòng không chọn file ảnh hoặc định dạng khác.");
-                  return;
-                }
-                if (dropped.size > 15 * 1024 * 1024) {
-                  setErrorMessage("Dung lượng file không được vượt quá 15MB.");
-                  return;
-                }
-                setFile(dropped);
-                setErrorMessage("");
-              }
-            }}
-            className="relative border-2 border-dashed border-[#E5E5E0] hover:border-[#16a34a] rounded-xl p-5 text-center transition-colors bg-[#F2F1ED] cursor-pointer"
-          >
-            <input
-              type="file"
-              required={!file}
-              accept=".pdf,application/pdf"
-              onChange={handleFileChange}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-            {file ? (
-              <div className="flex items-center justify-between p-2.5 rounded-lg bg-white border border-[#E5E5E0] relative z-10">
-                <div className="flex items-center gap-2 text-[#0C0C0C] text-xs font-semibold truncate">
-                  <FileText className="w-5 h-5 text-[#16a34a] shrink-0" />
-                  <span className="truncate max-w-[200px]">{file.name}</span>
-                  <span className="text-[10px] text-slate-500 font-normal shrink-0">
-                    · {(file.size / (1024 * 1024)).toFixed(1)} MB
+              {/* Ô hiển thị tên job cố định */}
+              <div className="w-full px-4 py-3 bg-[#F8F8F6] border border-[#E5E5E0] rounded-xl text-xs sm:text-sm font-semibold text-[#0C0C0C] flex items-center justify-between select-none">
+                <div className="flex items-center gap-2 truncate">
+                  <span className="truncate">{job.title}</span>
+                  {job.department && (
+                    <span className="text-[11px] font-medium text-slate-600 bg-white px-2 py-0.5 rounded-md border border-[#E5E5E0] shrink-0">
+                      {job.department.name}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  {job.salaryRange && (
+                    <span className="text-[11px] font-bold text-[#16a34a] bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md font-mono">
+                      {job.salaryRange}
+                    </span>
+                  )}
+                  <span title="Vị trí tuyển dụng cố định">
+                    <Lock className="w-3.5 h-3.5 text-slate-400" />
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setFile(null);
-                  }}
-                  className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors"
-                  title="Chọn file khác"
-                >
-                  <X className="w-4 h-4" />
-                </button>
               </div>
-            ) : (
-              <div className="space-y-1 text-slate-600 text-xs">
-                <Upload className="w-6 h-6 mx-auto text-[#16a34a] mb-1" />
-                <p className="font-semibold text-[#0C0C0C]">Bấm để chọn tệp hoặc kéo thả file PDF vào đây</p>
-                <p className="text-[10px] text-slate-400">Chỉ chấp nhận tệp định dạng .pdf • Tối đa 15MB</p>
+            </div>
+
+            {/* 2. HỌ VÀ TÊN ỨNG VIÊN * */}
+            <div>
+              <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-2">
+                HỌ VÀ TÊN ỨNG VIÊN <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                disabled={job.isClosed}
+                placeholder="VD: Nguyễn Văn A"
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                className="w-full px-4 py-3 bg-white border border-[#E5E5E0] rounded-xl text-xs sm:text-sm text-[#0C0C0C] placeholder:text-slate-400 focus:outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a] transition-all disabled:bg-slate-50 disabled:cursor-not-allowed"
+              />
+            </div>
+
+            {/* 3. ĐỊA CHỈ EMAIL * & SỐ ĐIỆN THOẠI */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              <div>
+                <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-2">
+                  ĐỊA CHỈ EMAIL <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  disabled={job.isClosed}
+                  placeholder="VD: nguyenvana@gmail.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-[#E5E5E0] rounded-xl text-xs sm:text-sm text-[#0C0C0C] placeholder:text-slate-400 focus:outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a] transition-all disabled:bg-slate-50 disabled:cursor-not-allowed"
+                />
               </div>
-            )}
-          </div>
-        </div>
 
-        {/* Submit Button */}
-        <div className="pt-2">
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 px-6 rounded-lg bg-[#16a34a] hover:bg-[#15803d] text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Đang tiếp nhận hồ sơ...</span>
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4" />
-                <span>Gửi Hồ Sơ Ứng Tuyển Ngay</span>
-              </>
-            )}
-          </button>
-        </div>
-      </form>
+              <div>
+                <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-2">
+                  SỐ ĐIỆN THOẠI
+                </label>
+                <input
+                  type="tel"
+                  disabled={job.isClosed}
+                  placeholder="VD: 0912 345 678"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-[#E5E5E0] rounded-xl text-xs sm:text-sm text-[#0C0C0C] placeholder:text-slate-400 focus:outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a] transition-all disabled:bg-slate-50 disabled:cursor-not-allowed"
+                />
+              </div>
+            </div>
 
-      <div className="pt-3 border-t border-[#E5E5E0] text-center text-[10px] text-slate-500 flex items-center justify-center gap-1.5">
-        <ShieldCheck className="w-3.5 h-3.5 text-[#16a34a]" />
-        <span>Thông tin cá nhân của bạn được bảo mật tuyệt đối</span>
+            {/* 4. HỒ SƠ CV (ĐỊNH DẠNG PDF, TỐI ĐA 10MB) * */}
+            <div>
+              <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-2">
+                HỒ SƠ CV (ĐỊNH DẠNG PDF, TỐI ĐA 10MB) <span className="text-rose-500">*</span>
+              </label>
+
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (job.isClosed) return;
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    const dropped = e.dataTransfer.files[0];
+                    if (!dropped.name.toLowerCase().endsWith(".pdf") && dropped.type !== "application/pdf") {
+                      setErrorMessage("Chỉ chấp nhận tệp định dạng PDF (.pdf). Vui lòng không chọn file ảnh hoặc định dạng khác.");
+                      return;
+                    }
+                    if (dropped.size > 10 * 1024 * 1024) {
+                      setErrorMessage("Dung lượng file không được vượt quá 10MB.");
+                      return;
+                    }
+                    setFile(dropped);
+                    setErrorMessage("");
+                  }
+                }}
+                className={`relative border-2 border-dashed border-[#E5E5E0] rounded-2xl p-8 sm:p-10 text-center transition-all bg-[#FAFAF8] ${
+                  job.isClosed ? "opacity-60 cursor-not-allowed" : "hover:border-[#16a34a] cursor-pointer"
+                }`}
+              >
+                <input
+                  type="file"
+                  required={!file}
+                  disabled={job.isClosed}
+                  accept=".pdf,application/pdf"
+                  onChange={handleFileChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                />
+
+                {file ? (
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-white border border-[#E5E5E0] relative z-10 max-w-md mx-auto shadow-xs">
+                    <div className="flex items-center gap-2.5 text-[#0C0C0C] text-xs font-semibold truncate">
+                      <FileText className="w-5 h-5 text-[#16a34a] shrink-0" />
+                      <span className="truncate max-w-[220px]">{file.name}</span>
+                      <span className="text-[10px] text-slate-500 font-normal shrink-0">
+                        ({(file.size / (1024 * 1024)).toFixed(1)} MB)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFile(null);
+                      }}
+                      className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors"
+                      title="Chọn file khác"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 select-none">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center mx-auto mb-2">
+                      <Upload className="w-6 h-6" />
+                    </div>
+                    <p className="text-xs sm:text-sm font-bold text-[#0C0C0C]">
+                      Kéo thả file CV vào đây hoặc{" "}
+                      <span className="text-amber-500 hover:underline">chọn từ thiết bị</span>
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Hệ thống chỉ hỗ trợ định dạng PDF (.pdf), dung lượng tối đa 10MB
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 5. NÚT SUBMIT */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={job.isClosed || loading}
+                className={`w-full py-3.5 px-6 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${
+                  job.isClosed
+                    ? "bg-[#8E95A5] text-white cursor-not-allowed opacity-90"
+                    : "bg-[#16a34a] hover:bg-[#15803d] text-white cursor-pointer shadow-xs active:scale-[0.99]"
+                }`}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Đang gửi hồ sơ ứng tuyển...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Gửi Hồ Sơ Ứng Tuyển</span>
+                  </>
+                )}
+              </button>
+
+              {job.isClosed && (
+                <p className="text-center text-[11px] text-rose-600 font-medium mt-2 select-none">
+                  * Đợt tuyển dụng này hiện đã đóng hoặc hết hạn tiếp nhận hồ sơ
+                </p>
+              )}
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

@@ -1,25 +1,16 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import Link from "next/link";
+import { useState, useEffect, useCallback } from "react";
 import {
-  Building2,
   Briefcase,
-  Search,
-  Filter,
-  Calendar,
-  Users,
-  MapPin,
-  ExternalLink,
-  ChevronRight,
-  ArrowRight,
-  Sparkles,
+  Upload,
+  Send,
+  Loader2,
   CheckCircle2,
-  Clock,
-  Share2,
-  Check,
+  AlertCircle,
+  FileText,
+  X,
 } from "lucide-react";
-import { formatDateTime } from "@/lib/utils";
 
 interface Department {
   id: string;
@@ -30,21 +21,17 @@ interface JobItem {
   id: string;
   title: string;
   quantity: number;
-  salaryRange: string | null;
-  description: string;
-  requirements: string | null;
-  benefits: string | null;
-  deadline: string | null;
-  createdAt: string;
-  department: Department | null;
+  salaryRange?: string | null;
+  deadline?: string | null;
+  department?: Department | null;
 }
 
 interface CompanyInfo {
   id: string;
   name: string;
   slug: string;
-  industry: string | null;
-  size: string | null;
+  industry?: string | null;
+  size?: string | null;
 }
 
 interface CareerPortalClientProps {
@@ -55,291 +42,357 @@ interface CareerPortalClientProps {
 
 export default function CareerPortalClient({
   company,
-  departments,
   initialJobs,
 }: CareerPortalClientProps) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedDeptId, setSelectedDeptId] = useState<string>("ALL");
-  const [copied, setCopied] = useState(false);
+  const [jobs, setJobs] = useState<JobItem[]>(initialJobs);
+  const [selectedJobId, setSelectedJobId] = useState<string>("");
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
+  });
 
-  // Filter jobs dynamically in real-time
-  const filteredJobs = useMemo(() => {
-    return initialJobs.filter((job) => {
-      // Keyword filter
-      if (searchTerm.trim()) {
-        const query = searchTerm.toLowerCase();
-        const matchTitle = job.title.toLowerCase().includes(query);
-        const matchDesc = job.description.toLowerCase().includes(query);
-        const matchDept = job.department?.name.toLowerCase().includes(query);
-        if (!matchTitle && !matchDesc && !matchDept) return false;
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
+
+  // Đồng bộ thời gian thực danh sách job từ database / mockStore
+  const fetchLatestJobs = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/external/jobs?slug=${encodeURIComponent(company.slug)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.jobs)) {
+          setJobs(data.jobs);
+        }
       }
+    } catch {
+      // Bỏ qua lỗi ngầm
+    }
+  }, [company.slug]);
 
-      // Department filter
-      if (selectedDeptId !== "ALL") {
-        if (job.department?.id !== selectedDeptId) return false;
+  useEffect(() => {
+    // Tự động kiểm tra cập nhật mỗi 10 giây và khi chuyển lại tab
+    const interval = setInterval(fetchLatestJobs, 10000);
+    const handleFocus = () => fetchLatestJobs();
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [fetchLatestJobs]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selected = e.target.files[0];
+      if (!selected.name.toLowerCase().endsWith(".pdf") && selected.type !== "application/pdf") {
+        setErrorMessage("Chỉ chấp nhận tệp định dạng PDF (.pdf). Vui lòng không chọn file ảnh hoặc định dạng khác.");
+        e.target.value = "";
+        setFile(null);
+        return;
       }
-
-      return true;
-    });
-  }, [initialJobs, searchTerm, selectedDeptId]);
-
-  const handleShare = () => {
-    if (typeof window !== "undefined") {
-      navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
+      if (selected.size > 10 * 1024 * 1024) {
+        setErrorMessage("Dung lượng file không được vượt quá 10MB.");
+        e.target.value = "";
+        setFile(null);
+        return;
+      }
+      setFile(selected);
+      setErrorMessage("");
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage("");
+
+    if (!selectedJobId) {
+      setErrorMessage("Vui lòng chọn một vị trí công việc bạn muốn ứng tuyển.");
+      return;
+    }
+
+    if (!file) {
+      setErrorMessage("Vui lòng đính kèm tệp CV PDF của bạn.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const data = new FormData();
+      data.append("jobPostingId", selectedJobId);
+      data.append("fullName", formData.fullName.trim());
+      data.append("email", formData.email.trim());
+      data.append("phone", formData.phone.trim());
+      data.append("file", file);
+
+      const res = await fetch("/api/external/apply", {
+        method: "POST",
+        body: data,
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || "Gửi hồ sơ thất bại. Vui lòng thử lại.");
+      }
+
+      setIsSuccess(true);
+      setSuccessMsg(result.message || "Đã gửi hồ sơ tới phòng Nhân sự thành công!");
+    } catch (err: any) {
+      setErrorMessage(err.message || "Đã xảy ra lỗi không mong muốn.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetForm = () => {
+    setIsSuccess(false);
+    setFormData({ fullName: "", email: "", phone: "" });
+    setFile(null);
+    setSelectedJobId("");
+    setErrorMessage("");
+  };
+
+  const selectedJob = jobs.find((j) => j.id === selectedJobId);
+  const isValidJobSelected = Boolean(selectedJobId && selectedJob);
+
   return (
-    <div className="min-h-screen bg-[#F2F1ED] text-[#0C0C0C] flex flex-col justify-between font-sans selection:bg-[#16a34a] selection:text-white">
-      {/* ================= HEADER ================= */}
-      <header className="border-b border-[#E5E5E0] bg-white sticky top-0 z-30 select-none">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#16a34a] flex items-center justify-center font-bold text-white shadow-xs">
-              <Building2 className="w-5 h-5" />
+    <div className="min-h-screen bg-[#F2F1ED] text-[#0C0C0C] flex items-center justify-center p-4 sm:p-6 md:p-8 font-sans selection:bg-[#16a34a] selection:text-white">
+      {/* Khung ô Form to ở chính giữa màn hình */}
+      <div className="w-full max-w-3xl bg-white rounded-3xl border border-[#E5E5E0] shadow-sm p-6 sm:p-10 md:p-12 transition-all">
+        {isSuccess ? (
+          <div className="text-center py-6 space-y-5">
+            <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto text-[#16a34a]">
+              <CheckCircle2 className="w-10 h-10" />
             </div>
+
             <div>
-              <h1 className="font-bold text-sm text-[#0C0C0C] tracking-tight">{company.name}</h1>
-              <p className="text-[11px] text-slate-500">Cổng Tuyển Dụng Doanh Nghiệp</p>
+              <h2 className="text-2xl font-bold text-[#0C0C0C] mb-2">Ứng Tuyển Thành Công!</h2>
+              <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto leading-relaxed">
+                {successMsg}
+              </p>
             </div>
-          </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleShare}
-              className="px-3 py-1.5 rounded-lg border border-[#E5E5E0] bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Sao chép đường dẫn Cổng tuyển dụng"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-[#16a34a]" />
-                  <span className="text-[#16a34a]">Đã sao chép link</span>
-                </>
-              ) : (
-                <>
-                  <Share2 className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Chia sẻ trang</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* ================= HERO SECTION ================= */}
-      <section className="bg-white border-b border-[#E5E5E0] py-10 sm:py-14">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[#16a34a] text-xs font-semibold mb-4">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Cơ hội nghề nghiệp & Phát triển sự nghiệp</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#0C0C0C] tracking-tight mb-3">
-              Gia nhập đội ngũ {company.name}
-            </h2>
-            <p className="text-sm text-slate-600 leading-relaxed mb-6">
-              Chúng tôi luôn tìm kiếm những nhân tài nhiệt huyết, đam mê cống hiến để cùng kiến tạo
-              những giá trị bền vững. Khám phá các vị trí tuyển dụng phù hợp và nộp hồ sơ trực tuyến ngay hôm nay.
-            </p>
-
-            <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
-              {company.industry && (
-                <div className="flex items-center gap-1.5">
-                  <span className="font-semibold text-slate-700">Lĩnh vực:</span>
-                  <span>{company.industry}</span>
-                </div>
-              )}
-              {company.size && (
-                <div className="flex items-center gap-1.5">
-                  <span className="font-semibold text-slate-700">Quy mô:</span>
-                  <span>{company.size}</span>
-                </div>
-              )}
-              <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-slate-700">Đang mở tuyển:</span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#16a34a] font-bold">
-                  {initialJobs.length} vị trí
-                </span>
+            <div className="p-4 rounded-2xl bg-[#F2F1ED] border border-[#E5E5E0] text-xs text-slate-700 max-w-md mx-auto text-left space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Doanh nghiệp:</span>
+                <span className="font-bold text-[#0C0C0C]">{company.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Vị trí ứng tuyển:</span>
+                <span className="font-bold text-[#16a34a]">{selectedJob?.title}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Ứng viên:</span>
+                <span className="font-semibold text-slate-800">{formData.fullName}</span>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* ================= MAIN CONTENT: SEARCH, FILTERS & JOB LIST ================= */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex-1 w-full space-y-6">
-        {/* Search & Filter Bar */}
-        <div className="bg-white p-4 rounded-2xl border border-[#E5E5E0] shadow-xs space-y-3">
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            {/* Search Input */}
-            <div className="relative flex-1 w-full">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <div className="pt-3">
+              <button
+                type="button"
+                onClick={handleResetForm}
+                className="px-6 py-2.5 rounded-xl bg-[#16a34a] hover:bg-[#15803d] text-white text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Nộp đơn cho vị trí khác
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Lỗi cảnh báo nếu có */}
+            {errorMessage && (
+              <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
+            {/* 1. VỊ TRÍ TUYỂN DỤNG * */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#0C0C0C] tracking-wide">
+                  <Briefcase className="w-4 h-4 text-[#0C0C0C]" />
+                  <span>VỊ TRÍ TUYỂN DỤNG</span>
+                  <span className="text-rose-500">*</span>
+                </div>
+                <span className="text-xs text-slate-500 font-medium">
+                  {jobs.length} vị trí đang mở
+                </span>
+              </div>
+
+              <select
+                value={selectedJobId}
+                onChange={(e) => setSelectedJobId(e.target.value)}
+                className="w-full px-4 py-3 bg-white border border-[#E5E5E0] rounded-xl text-xs sm:text-sm text-[#0C0C0C] focus:outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a] transition-all cursor-pointer"
+              >
+                <option value="">-- Chọn vị trí công việc bạn muốn ứng tuyển --</option>
+                {jobs.map((j) => (
+                  <option key={j.id} value={j.id}>
+                    {j.title} {j.department?.name ? `(${j.department.name})` : ""} - Tuyển {j.quantity} người
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 2. HỌ VÀ TÊN ỨNG VIÊN * */}
+            <div>
+              <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-2">
+                HỌ VÀ TÊN ỨNG VIÊN <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="text"
-                placeholder="Tìm kiếm vị trí tuyển dụng theo chức danh hoặc từ khóa..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-[#F2F1ED] border border-[#E5E5E0] rounded-xl text-xs text-[#0C0C0C] placeholder:text-slate-400 focus:outline-none focus:border-[#16a34a] focus:bg-white transition-colors"
+                required
+                placeholder="VD: Nguyễn Văn A"
+                value={formData.fullName}
+                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                className="w-full px-4 py-3 bg-white border border-[#E5E5E0] rounded-xl text-xs sm:text-sm text-[#0C0C0C] placeholder:text-slate-400 focus:outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a] transition-all"
               />
             </div>
 
-            {/* Department Quick Filter */}
-            <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+            {/* 3. ĐỊA CHỈ EMAIL * & SỐ ĐIỆN THOẠI */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+              <div>
+                <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-2">
+                  ĐỊA CHỈ EMAIL <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="VD: nguyenvana@gmail.com"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-[#E5E5E0] rounded-xl text-xs sm:text-sm text-[#0C0C0C] placeholder:text-slate-400 focus:outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a] transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-2">
+                  SỐ ĐIỆN THOẠI
+                </label>
+                <input
+                  type="tel"
+                  placeholder="VD: 0912 345 678"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="w-full px-4 py-3 bg-white border border-[#E5E5E0] rounded-xl text-xs sm:text-sm text-[#0C0C0C] placeholder:text-slate-400 focus:outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a] transition-all"
+                />
+              </div>
+            </div>
+
+            {/* 4. HỒ SƠ CV (ĐỊNH DẠNG PDF, TỐI ĐA 10MB) * */}
+            <div>
+              <label className="block text-xs font-bold text-[#0C0C0C] tracking-wide mb-2">
+                HỒ SƠ CV (ĐỊNH DẠNG PDF, TỐI ĐA 10MB) <span className="text-rose-500">*</span>
+              </label>
+
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                    const dropped = e.dataTransfer.files[0];
+                    if (!dropped.name.toLowerCase().endsWith(".pdf") && dropped.type !== "application/pdf") {
+                      setErrorMessage("Chỉ chấp nhận tệp định dạng PDF (.pdf). Vui lòng không chọn file ảnh hoặc định dạng khác.");
+                      return;
+                    }
+                    if (dropped.size > 10 * 1024 * 1024) {
+                      setErrorMessage("Dung lượng file không được vượt quá 10MB.");
+                      return;
+                    }
+                    setFile(dropped);
+                    setErrorMessage("");
+                  }
+                }}
+                className="relative border-2 border-dashed border-[#E5E5E0] hover:border-[#16a34a] rounded-2xl p-8 sm:p-10 text-center transition-all bg-[#FAFAF8] cursor-pointer"
+              >
+                <input
+                  type="file"
+                  required={!file}
+                  accept=".pdf,application/pdf"
+                  onChange={handleFileChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+
+                {file ? (
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-white border border-[#E5E5E0] relative z-10 max-w-md mx-auto shadow-xs">
+                    <div className="flex items-center gap-2.5 text-[#0C0C0C] text-xs font-semibold truncate">
+                      <FileText className="w-5 h-5 text-[#16a34a] shrink-0" />
+                      <span className="truncate max-w-[220px]">{file.name}</span>
+                      <span className="text-[10px] text-slate-500 font-normal shrink-0">
+                        ({(file.size / (1024 * 1024)).toFixed(1)} MB)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFile(null);
+                      }}
+                      className="p-1 rounded text-slate-400 hover:text-rose-600 transition-colors"
+                      title="Chọn file khác"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 select-none">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center mx-auto mb-2">
+                      <Upload className="w-6 h-6" />
+                    </div>
+                    <p className="text-xs sm:text-sm font-bold text-[#0C0C0C]">
+                      Kéo thả file CV vào đây hoặc{" "}
+                      <span className="text-amber-500 hover:underline">chọn từ thiết bị</span>
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      Hệ thống chỉ hỗ trợ định dạng PDF (.pdf), dung lượng tối đa 10MB
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 5. NÚT SUBMIT */}
+            <div className="pt-2">
               <button
-                type="button"
-                onClick={() => setSelectedDeptId("ALL")}
-                className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer border ${
-                  selectedDeptId === "ALL"
-                    ? "bg-[#16a34a] text-white border-[#16a34a]"
-                    : "bg-[#F2F1ED] hover:bg-slate-200 text-slate-700 border-[#E5E5E0]"
+                type="submit"
+                disabled={!isValidJobSelected || loading}
+                className={`w-full py-3.5 px-6 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${
+                  !isValidJobSelected
+                    ? "bg-[#8E95A5] text-white cursor-not-allowed opacity-90"
+                    : "bg-[#16a34a] hover:bg-[#15803d] text-white cursor-pointer shadow-xs active:scale-[0.99]"
                 }`}
               >
-                Tất cả phòng ban ({initialJobs.length})
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Đang gửi hồ sơ ứng tuyển...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Gửi Hồ Sơ Ứng Tuyển</span>
+                  </>
+                )}
               </button>
-              {departments.map((d) => {
-                const count = initialJobs.filter((j) => j.department?.id === d.id).length;
-                if (count === 0) return null;
-                return (
-                  <button
-                    key={d.id}
-                    type="button"
-                    onClick={() => setSelectedDeptId(d.id)}
-                    className={`px-3 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer border ${
-                      selectedDeptId === d.id
-                        ? "bg-[#16a34a] text-white border-[#16a34a]"
-                        : "bg-[#F2F1ED] hover:bg-slate-200 text-slate-700 border-[#E5E5E0]"
-                    }`}
-                  >
-                    {d.name} ({count})
-                  </button>
-                );
-              })}
+
+              {!isValidJobSelected && (
+                <p className="text-center text-[11px] text-amber-600/90 font-medium mt-2 select-none">
+                  * Vui lòng chọn một vị trí tuyển dụng hợp lệ để mở nút gửi hồ sơ
+                </p>
+              )}
             </div>
-          </div>
-        </div>
-
-        {/* Results Counter */}
-        <div className="flex items-center justify-between text-xs text-slate-600 px-1">
-          <span>
-            Hiển thị <strong>{filteredJobs.length}</strong> vị trí phù hợp
-          </span>
-          {initialJobs.length > 0 && (
-            <span className="text-[11px] text-slate-400">
-              Dữ liệu được cập nhật tự động theo thời gian thực
-            </span>
-          )}
-        </div>
-
-        {/* Job Grid */}
-        {filteredJobs.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-[#E5E5E0] p-12 text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
-              <Briefcase className="w-6 h-6" />
-            </div>
-            <h3 className="font-bold text-sm text-[#0C0C0C]">
-              {searchTerm || selectedDeptId !== "ALL"
-                ? "Không tìm thấy vị trí tuyển dụng phù hợp"
-                : "Hiện tại doanh nghiệp chưa có đợt tuyển dụng đang mở"}
-            </h3>
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
-              {searchTerm || selectedDeptId !== "ALL"
-                ? "Vui lòng thử tìm kiếm với từ khóa khác hoặc bỏ chọn bộ lọc phòng ban."
-                : "Các cơ hội việc làm mới sẽ được cập nhật liên tục. Hãy quay lại sau nhé!"}
-            </p>
-            {(searchTerm || selectedDeptId !== "ALL") && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchTerm("");
-                  setSelectedDeptId("ALL");
-                }}
-                className="px-4 py-2 rounded-xl bg-[#16a34a] text-white text-xs font-semibold hover:bg-[#15803d] transition-colors"
-              >
-                Xem tất cả vị trí
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredJobs.map((job) => (
-              <div
-                key={job.id}
-                className="bg-white rounded-2xl border border-[#E5E5E0] p-5 shadow-xs hover:border-[#16a34a]/50 hover:shadow-md transition-all flex flex-col justify-between group"
-              >
-                <div>
-                  {/* Top Badges */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="px-2.5 py-0.5 rounded-md bg-[#F2F1ED] text-slate-700 text-[11px] font-semibold border border-[#E5E5E0]">
-                      {job.department?.name || "Chưa phân phòng ban"}
-                    </span>
-                    {job.salaryRange ? (
-                      <span className="text-xs font-bold text-[#16a34a] bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-md font-mono">
-                        {job.salaryRange}
-                      </span>
-                    ) : (
-                      <span className="text-xs font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200">
-                        Thỏa thuận
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Title */}
-                  <h3 className="text-base font-bold text-[#0C0C0C] group-hover:text-[#16a34a] transition-colors line-clamp-1 mb-2">
-                    {job.title}
-                  </h3>
-
-                  {/* Meta info */}
-                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 mb-3">
-                    <div className="flex items-center gap-1">
-                      <Users className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Cần tuyển: <strong className="text-slate-800">{job.quantity}</strong></span>
-                    </div>
-                    {job.deadline && (
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        <span>Hạn nộp: <strong className="text-slate-800">{formatDateTime(job.deadline)}</strong></span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Description snippet */}
-                  <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed mb-4">
-                    {job.description}
-                  </p>
-                </div>
-
-                {/* Bottom Action */}
-                <div className="pt-3 border-t border-[#E5E5E0] flex items-center justify-between">
-                  <span className="text-[11px] text-slate-400">Đơn ứng tuyển trực tuyến</span>
-                  <Link
-                    href={`/apply/${job.id}`}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#16a34a] hover:bg-[#15803d] text-white text-xs font-semibold transition-all group-hover:gap-2 cursor-pointer shadow-xs"
-                  >
-                    <span>Ứng tuyển ngay</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
+          </form>
         )}
-      </main>
-
-      {/* ================= FOOTER ================= */}
-      <footer className="border-t border-[#E5E5E0] bg-white py-6 mt-12 text-center text-xs text-slate-500 select-none">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-[#16a34a]" />
-            <span className="font-semibold text-slate-700">{company.name}</span>
-            <span>· Cổng Tuyển Dụng Doanh Nghiệp</span>
-          </div>
-          <div className="text-[11px] text-slate-400">
-            Hệ thống Quản lý Tuyển dụng Doanh nghiệp ATS
-          </div>
-        </div>
-      </footer>
+      </div>
     </div>
   );
 }
